@@ -73,8 +73,25 @@ async def get_current_user(
 
 @app.post("/auth/register", status_code=201)
 async def register(body: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
-    if await crud.get_user_by_email(db, body.email):
-        raise HTTPException(status_code=409, detail="Email already registered")
+    existing = await crud.get_user_by_email(db, body.email)
+    if existing:
+        if existing.is_verified:
+            raise HTTPException(status_code=409, detail="Email already registered")
+        # Unverified — update fields and resend a fresh verify code
+        existing.password_hash = hash_password(body.password)
+        existing.first_name = body.first_name
+        existing.last_name = body.last_name
+        existing.username = body.username
+        existing.age = body.age
+        await db.commit()
+        code = generate_code()
+        await crud.create_verification_code(db, body.email, code, "verify", code_expiry())
+        try:
+            send_verification_email(body.email, code, first_name=body.first_name)
+        except Exception as e:
+            print(f"[email error] {e}")
+        return {"message": "Verification code sent to your email"}
+
     if await crud.get_user_by_username(db, body.username):
         raise HTTPException(status_code=409, detail="Username already taken")
 
@@ -165,6 +182,8 @@ async def reset_password(body: schemas.ResetPasswordRequest, db: AsyncSession = 
         raise HTTPException(status_code=400, detail="Invalid or expired code")
 
     await crud.update_user_password(db, user, hash_password(body.new_password))
+    if not user.is_verified:
+        await crud.mark_user_verified(db, user)
     return {"message": "Password updated successfully"}
 
 
