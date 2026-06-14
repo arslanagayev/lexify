@@ -1,6 +1,7 @@
 from __future__ import annotations
 from contextlib import asynccontextmanager
 import os
+import re
 from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Query, Request, status
@@ -9,6 +10,9 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from backend.database import get_db, init_db
 from backend import crud, schemas
@@ -34,7 +38,10 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown(wait=False)
 
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="Lexify", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -72,12 +79,16 @@ async def get_current_user(
 # ── Auth ──────────────────────────────────────────────────────
 
 @app.post("/auth/register", status_code=201)
-async def register(body: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/minute")
+async def register(request: Request, body: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
     existing = await crud.get_user_by_email(db, body.email)
     if existing:
         if existing.is_verified:
             raise HTTPException(status_code=409, detail="Email already registered")
-        # Unverified — update fields and resend a fresh verify code
+        # Unverified — check cooldown, then update fields and resend fresh verify code
+        wait = await crud.check_and_update_code_cooldown(db, existing)
+        if wait > 0:
+            raise HTTPException(status_code=429, detail=f"Lütfen {wait} saniye bekleyip tekrar deneyin")
         existing.password_hash = hash_password(body.password)
         existing.first_name = body.first_name
         existing.last_name = body.last_name
@@ -96,12 +107,13 @@ async def register(body: schemas.UserCreate, db: AsyncSession = Depends(get_db))
         raise HTTPException(status_code=409, detail="Username already taken")
 
     pw_hash = hash_password(body.password)
-    await crud.create_user(
+    new_user = await crud.create_user(
         db, email=body.email, password_hash=pw_hash,
         first_name=body.first_name, last_name=body.last_name,
         username=body.username, age=body.age,
     )
 
+    await crud.check_and_update_code_cooldown(db, new_user)
     code = generate_code()
     await crud.create_verification_code(db, body.email, code, "verify", code_expiry())
 
@@ -114,7 +126,8 @@ async def register(body: schemas.UserCreate, db: AsyncSession = Depends(get_db))
 
 
 @app.post("/auth/verify", response_model=schemas.TokenResponse)
-async def verify_email(body: schemas.VerifyRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def verify_email(request: Request, body: schemas.VerifyRequest, db: AsyncSession = Depends(get_db)):
     user = await crud.get_user_by_email(db, body.email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -129,7 +142,8 @@ async def verify_email(body: schemas.VerifyRequest, db: AsyncSession = Depends(g
 
 
 @app.post("/auth/login", response_model=schemas.TokenResponse)
-async def login(body: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def login(request: Request, body: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
     user = await crud.get_user_by_email(db, body.email)
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -147,6 +161,10 @@ async def resend_verification(body: schemas.ResendRequest, db: AsyncSession = De
         raise HTTPException(status_code=404, detail="User not found")
     if user.is_verified:
         raise HTTPException(status_code=400, detail="Email already verified")
+
+    wait = await crud.check_and_update_code_cooldown(db, user)
+    if wait > 0:
+        raise HTTPException(status_code=429, detail=f"Lütfen {wait} saniye bekleyip tekrar deneyin")
 
     code = generate_code()
     await crud.create_verification_code(db, body.email, code, "verify", code_expiry())
@@ -203,14 +221,28 @@ async def list_words(
     return await crud.get_words(db, q=q, user_id=current_user.id)
 
 
+_WORD_RE = re.compile(r"^[\w\s\-''À-ÿ]+$", re.UNICODE)
+
 @app.post("/words", response_model=schemas.WordResponse, status_code=201)
 async def add_word(
     body: schemas.WordCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    word_str = body.word.strip()
+    if not word_str:
+        raise HTTPException(status_code=422, detail="Kelime boş olamaz")
+    if len(word_str) > 50:
+        raise HTTPException(status_code=422, detail="Kelime çok uzun (max 50 karakter)")
+    if not _WORD_RE.match(word_str):
+        raise HTTPException(status_code=422, detail="Kelime geçersiz karakter içeriyor")
+
+    duplicate = await crud.get_word_by_text(db, word_str, user_id=current_user.id)
+    if duplicate:
+        raise HTTPException(status_code=409, detail={"message": "Bu kelime zaten listenizde", "id": duplicate.id})
+
     try:
-        data = await enrich_word(body.word.strip())
+        data = await enrich_word(word_str)
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
     word = await crud.create_word(db, data, user_id=current_user.id)

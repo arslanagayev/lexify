@@ -85,6 +85,23 @@ async def set_telegram_chat_id(db: AsyncSession, user_id: int, chat_id: str) -> 
 
 # ── Verification Codes ────────────────────────────────────────
 
+async def check_and_update_code_cooldown(db: AsyncSession, user: User,
+                                         cooldown_seconds: int = 30) -> int:
+    """Returns seconds remaining in cooldown (0 = OK to proceed)."""
+    now = datetime.now(timezone.utc)
+    if user.last_code_sent_at:
+        sent = user.last_code_sent_at
+        if sent.tzinfo is None:
+            sent = sent.replace(tzinfo=timezone.utc)
+        elapsed = (now - sent).total_seconds()
+        remaining = cooldown_seconds - elapsed
+        if remaining > 0:
+            return int(remaining) + 1
+    user.last_code_sent_at = now
+    await db.commit()
+    return 0
+
+
 async def create_verification_code(db: AsyncSession, email: str, code: str,
                                    purpose: str, expires_at: datetime) -> VerificationCode:
     # Invalidate any existing unused codes for this email+purpose
@@ -147,6 +164,15 @@ async def get_words(db: AsyncSession, q: Optional[str] = None,
         stmt = stmt.where(Word.word.ilike(f"%{q}%"))
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def get_word_by_text(db: AsyncSession, word: str,
+                           user_id: Optional[int] = None) -> Optional[Word]:
+    stmt = select(Word).where(Word.word.ilike(word.lower().strip()))
+    if user_id is not None:
+        stmt = stmt.where(Word.user_id == user_id)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def get_word(db: AsyncSession, word_id: int,

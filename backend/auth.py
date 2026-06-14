@@ -1,4 +1,5 @@
 from __future__ import annotations
+import html
 import os
 import smtplib
 import secrets
@@ -158,7 +159,8 @@ def _code_block(code: str) -> str:
 # ── Public API ────────────────────────────────────────────────
 
 def send_verification_email(to_email: str, code: str, first_name: str = "") -> None:
-    hi = f"Hi {first_name}," if first_name else "Hi,"
+    safe_name = html.escape(first_name) if first_name else ""
+    hi = f"Hi {safe_name}," if safe_name else "Hi,"
 
     body = f"""
 <h1 style="margin:0 0 16px;font-size:26px;font-weight:700;color:#111827;letter-spacing:-0.3px;">
@@ -188,7 +190,8 @@ def send_verification_email(to_email: str, code: str, first_name: str = "") -> N
 
 
 def send_reset_email(to_email: str, code: str, first_name: str = "") -> None:
-    hi = f"Hi {first_name}," if first_name else "Hi,"
+    safe_name = html.escape(first_name) if first_name else ""
+    hi = f"Hi {safe_name}," if safe_name else "Hi,"
 
     body = f"""
 <h1 style="margin:0 0 16px;font-size:26px;font-weight:700;color:#111827;letter-spacing:-0.3px;">
