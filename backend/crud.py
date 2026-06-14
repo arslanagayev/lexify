@@ -4,9 +4,9 @@ from datetime import datetime, timezone, timedelta, date
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 
-from backend.models import User, VerificationCode, Word, DailyActivity, ReviewLog, TelegramChat
+from backend.models import User, VerificationCode, Word, DailyActivity, ReviewLog, TelegramChat, TelegramLinkCode, TelegramLanguage
 from backend.schemas import WordUpdate
 
 
@@ -306,6 +306,89 @@ async def get_streak(db: AsyncSession) -> dict:
             check = check - timedelta(days=1)
 
     return {"streak": streak, "last_active": last_active}
+
+
+# ── Telegram Link Codes ───────────────────────────────────────
+
+async def create_telegram_link_code(db: AsyncSession, user_id: int) -> str:
+    import string
+    existing = await db.execute(
+        select(TelegramLinkCode)
+        .where(TelegramLinkCode.user_id == user_id)
+        .where(TelegramLinkCode.used == 0)
+    )
+    for old in existing.scalars().all():
+        old.used = 1
+
+    code = ''.join(random.choices(string.digits, k=6))
+    db.add(TelegramLinkCode(
+        user_id=user_id,
+        code=code,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
+        used=0,
+    ))
+    await db.commit()
+    return code
+
+
+async def consume_telegram_link_code(db: AsyncSession, code: str) -> Optional[int]:
+    result = await db.execute(
+        select(TelegramLinkCode)
+        .where(TelegramLinkCode.code == code)
+        .where(TelegramLinkCode.used == 0)
+        .where(TelegramLinkCode.expires_at > datetime.now(timezone.utc))
+    )
+    link_code = result.scalar_one_or_none()
+    if not link_code:
+        return None
+    link_code.used = 1
+    await db.commit()
+    return link_code.user_id
+
+
+async def link_telegram_chat(db: AsyncSession, user_id: int, chat_id: str) -> None:
+    user = await db.get(User, user_id)
+    if user:
+        user.telegram_chat_id = chat_id
+        await db.commit()
+
+
+async def unlink_telegram_chat(db: AsyncSession, user: User) -> User:
+    user.telegram_chat_id = None
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def get_telegram_language(db: AsyncSession, chat_id: str) -> str:
+    row = await db.get(TelegramLanguage, chat_id)
+    return row.language if row else "en"
+
+
+async def set_telegram_language(db: AsyncSession, chat_id: str, language: str) -> None:
+    row = await db.get(TelegramLanguage, chat_id)
+    if row:
+        row.language = language
+    else:
+        db.add(TelegramLanguage(chat_id=chat_id, language=language))
+    await db.commit()
+
+
+async def get_user_by_telegram_chat_id(db: AsyncSession, chat_id: str) -> Optional[User]:
+    result = await db.execute(select(User).where(User.telegram_chat_id == chat_id))
+    return result.scalar_one_or_none()
+
+
+async def get_due_review_words(db: AsyncSession, user_id: int, limit: int = 10) -> list:
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        select(Word)
+        .where(Word.user_id == user_id)
+        .where(or_(Word.next_review <= now, Word.next_review.is_(None)))
+        .order_by(Word.next_review.asc().nullsfirst())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
 
 
 # ── Telegram Chats ────────────────────────────────────────────

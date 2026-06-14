@@ -27,6 +27,10 @@ class User(Base):
     def telegram_bot_connected(self) -> bool:
         return bool(self.telegram_bot_token)
 
+    @property
+    def telegram_linked(self) -> bool:
+        return bool(self.telegram_chat_id)
+
 
 class VerificationCode(Base):
     __tablename__ = "verification_codes"
@@ -96,3 +100,20 @@ class TelegramChat(Base):
     registered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class TelegramLinkCode(Base):
+    __tablename__ = "telegram_link_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(6), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+
+
+class TelegramLanguage(Base):
+    __tablename__ = "telegram_language"
+
+    chat_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    language: Mapped[str] = mapped_column(String(5), nullable=False, server_default="en")

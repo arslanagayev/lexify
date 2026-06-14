@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { AuthLayout } from './LoginPage'
 
 const API = 'http://localhost:8000'
+const RESEND_COOLDOWN = 30
 
 export default function RegisterPage({ onSwitchToLogin, onOpenSettings }) {
   const { login } = useAuth()
@@ -21,6 +22,23 @@ export default function RegisterPage({ onSwitchToLogin, onOpenSettings }) {
 
   // Verify step
   const [code, setCode] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const cooldownRef = useRef(null)
+
+  useEffect(() => {
+    if (step === 'verify') setResendCooldown(RESEND_COOLDOWN)
+  }, [step])
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    cooldownRef.current = setInterval(() => {
+      setResendCooldown(v => {
+        if (v <= 1) { clearInterval(cooldownRef.current); return 0 }
+        return v - 1
+      })
+    }, 1000)
+    return () => clearInterval(cooldownRef.current)
+  }, [resendCooldown > 0 && step === 'verify'])
 
   const handleRegister = async (e) => {
     e.preventDefault()
@@ -70,15 +88,17 @@ export default function RegisterPage({ onSwitchToLogin, onOpenSettings }) {
   }
 
   const handleResend = async () => {
+    if (resendCooldown > 0) return
     setError(null)
     try {
-      const res = await fetch(`${API}/auth/forgot-password`, {
+      const res = await fetch(`${API}/auth/resend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
       if (!res.ok) throw new Error('Could not resend')
-      setError('New code sent!')
+      setError('New code sent! Check your inbox.')
+      setResendCooldown(RESEND_COOLDOWN)
     } catch (e) {
       setError(e.message)
     }
@@ -133,10 +153,20 @@ export default function RegisterPage({ onSwitchToLogin, onOpenSettings }) {
         </form>
 
         <div className="mt-4 text-center space-y-2">
+          <p className="text-white/25 text-xs leading-relaxed">
+            May take 1–2 min · Check spam/junk folder<br />
+            <span className="opacity-70">1–2 dk sürebilir · Spam/gereksiz klasörünü kontrol et</span><br />
+            <span className="opacity-50">Может занять 1–2 мин · Проверьте папку спам</span><br />
+            <span className="opacity-40">可能需要1-2分钟 · 请检查垃圾邮件</span>
+          </p>
           <p className="text-white/30 text-sm">
             Didn't receive it?{' '}
-            <button onClick={handleResend} className="text-violet-400 hover:text-violet-300">
-              Resend
+            <button
+              onClick={handleResend}
+              disabled={resendCooldown > 0}
+              className="text-violet-400 hover:text-violet-300 disabled:text-white/20 disabled:cursor-not-allowed transition-colors"
+            >
+              {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend'}
             </button>
           </p>
           <button onClick={() => setStep('form')} className="text-white/25 text-xs hover:text-white/50 transition-colors">

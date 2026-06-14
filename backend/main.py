@@ -122,6 +122,23 @@ async def login(body: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
     return {"access_token": token, "token_type": "bearer", "user": user}
 
 
+@app.post("/auth/resend")
+async def resend_verification(body: schemas.ResendRequest, db: AsyncSession = Depends(get_db)):
+    user = await crud.get_user_by_email(db, body.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_verified:
+        raise HTTPException(status_code=400, detail="Email already verified")
+
+    code = generate_code()
+    await crud.create_verification_code(db, body.email, code, "verify", code_expiry())
+    try:
+        send_verification_email(body.email, code, first_name=user.first_name)
+    except Exception as e:
+        print(f"[email error] {e}")
+    return {"message": "Verification code resent"}
+
+
 @app.post("/auth/forgot-password")
 async def forgot_password(body: schemas.ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     user = await crud.get_user_by_email(db, body.email)
@@ -309,3 +326,87 @@ async def telegram_setup_delete(
     telegram_manager.stop_bot(current_user.id)
     user = await crud.clear_telegram_token(db, current_user)
     return user
+
+
+# ── Telegram link-code flow ───────────────────────────────────
+
+@app.post("/telegram/generate-link-code", response_model=schemas.TelegramLinkCodeResponse)
+async def generate_telegram_link_code(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    code = await crud.create_telegram_link_code(db, current_user.id)
+    return {"code": code, "expires_in_seconds": 300}
+
+
+@app.post("/telegram/link")
+async def link_telegram(body: schemas.TelegramLinkRequest, db: AsyncSession = Depends(get_db)):
+    user_id = await crud.consume_telegram_link_code(db, body.code)
+    if user_id is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    await crud.link_telegram_chat(db, user_id, body.telegram_chat_id)
+    return {"success": True, "message": "Account linked successfully"}
+
+
+@app.delete("/telegram/link", response_model=schemas.UserResponse)
+async def unlink_telegram(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await crud.unlink_telegram_chat(db, current_user)
+
+
+@app.post("/telegram/add-word", response_model=schemas.WordResponse)
+async def telegram_add_word(body: schemas.TelegramWordRequest, db: AsyncSession = Depends(get_db)):
+    user = await crud.get_user_by_telegram_chat_id(db, body.telegram_chat_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="not_linked")
+    try:
+        data = await enrich_word(body.word.strip())
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    word = await crud.create_word(db, data, user_id=user.id)
+    await crud.log_activity(db)
+    return word
+
+
+@app.get("/telegram/words", response_model=list[schemas.WordResponse])
+async def telegram_words(chat_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+    user = await crud.get_user_by_telegram_chat_id(db, chat_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="not_linked")
+    return await crud.get_words(db, q=None, user_id=user.id)
+
+
+@app.get("/telegram/review", response_model=list[schemas.WordResponse])
+async def telegram_review(chat_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+    user = await crud.get_user_by_telegram_chat_id(db, chat_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="not_linked")
+    return await crud.get_due_review_words(db, user.id)
+
+
+@app.get("/telegram/quiz", response_model=schemas.QuizQuestion)
+async def telegram_quiz(chat_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+    user = await crud.get_user_by_telegram_chat_id(db, chat_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="not_linked")
+    q = await crud.get_quiz_question(db, user_id=user.id)
+    if q is None:
+        raise HTTPException(status_code=422, detail="Need at least 2 words for quiz")
+    return q
+
+
+@app.get("/telegram/language")
+async def get_telegram_language(chat_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+    lang = await crud.get_telegram_language(db, chat_id)
+    return {"chat_id": chat_id, "language": lang}
+
+
+@app.post("/telegram/language")
+async def set_telegram_language(body: schemas.TelegramLanguageRequest, db: AsyncSession = Depends(get_db)):
+    valid = {"en", "tr", "ru", "zh"}
+    if body.language not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid language. Choose: en, tr, ru, zh")
+    await crud.set_telegram_language(db, body.chat_id, body.language)
+    return {"chat_id": body.chat_id, "language": body.language}

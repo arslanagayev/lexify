@@ -8,6 +8,7 @@ export default function QuizMode({ words, token }) {
   const [question, setQuestion]   = useState(null)
   const [loading, setLoading]     = useState(false)
   const [selected, setSelected]   = useState(null) // index of clicked option
+  const [lastCorrect, setLastCorrect] = useState(null) // boolean result of last answer
   const [score, setScore]         = useState({ correct: 0, total: 0 })
   const [finished, setFinished]   = useState(false)
   const [sessionLen] = useState(10)
@@ -18,6 +19,7 @@ export default function QuizMode({ words, token }) {
     if (wordsWithMeaning.length < 2) return
     setLoading(true)
     setSelected(null)
+    setLastCorrect(null)
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : {}
       const res = await fetch(`${API}/quiz/question`, { headers })
@@ -37,8 +39,9 @@ export default function QuizMode({ words, token }) {
 
   const handleSelect = (idx) => {
     if (selected !== null) return
-    setSelected(idx)
     const isCorrect = question.options[idx].correct
+    setSelected(idx)
+    setLastCorrect(isCorrect)
     setScore(s => ({
       correct: s.correct + (isCorrect ? 1 : 0),
       total: s.total + 1,
@@ -57,6 +60,7 @@ export default function QuizMode({ words, token }) {
     setScore({ correct: 0, total: 0 })
     setFinished(false)
     setSelected(null)
+    setLastCorrect(null)
     fetchQuestion()
   }
 
@@ -155,10 +159,10 @@ export default function QuizMode({ words, token }) {
           </div>
 
           {/* Feedback + Next */}
-          {selected !== null && (
+          {selected !== null && lastCorrect !== null && (
             <div className="mt-6 flex items-center justify-between animate-fade-up">
-              <p className={`font-semibold text-sm ${question.options[selected].correct ? 'text-emerald-400' : 'text-red-400'}`}>
-                {question.options[selected].correct ? `✓ ${t.quizCorrect}` : `✗ ${t.quizWrong}`}
+              <p className={`font-semibold text-sm ${lastCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
+                {lastCorrect ? `✓ ${t.quizCorrect}` : `✗ ${t.quizWrong}`}
               </p>
               <button
                 onClick={handleNext}

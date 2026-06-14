@@ -73,6 +73,7 @@ class UserResponse(BaseModel):
     is_verified: bool
     created_at: datetime
     telegram_bot_connected: bool = False
+    telegram_linked: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -195,3 +196,27 @@ class TelegramStartRequest(BaseModel):
 
 class TelegramSetupRequest(BaseModel):
     token: str
+
+
+class TelegramLinkRequest(BaseModel):
+    code: str
+    telegram_chat_id: str
+
+
+class TelegramWordRequest(BaseModel):
+    telegram_chat_id: str
+    word: str
+
+
+class TelegramLinkCodeResponse(BaseModel):
+    code: str
+    expires_in_seconds: int = 300
+
+
+class ResendRequest(BaseModel):
+    email: str
+
+
+class TelegramLanguageRequest(BaseModel):
+    chat_id: str
+    language: str
