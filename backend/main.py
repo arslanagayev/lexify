@@ -22,6 +22,7 @@ from backend.auth import (
     generate_code, code_expiry, send_verification_email, send_reset_email,
 )
 from backend.agents.word_agent import enrich_word
+from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
 
@@ -430,22 +431,41 @@ async def telegram_words(chat_id: str = Query(...), db: AsyncSession = Depends(g
     return await crud.get_words(db, q=None, user_id=user.id)
 
 
-@app.get("/telegram/review", response_model=list[schemas.WordResponse])
-async def telegram_review(chat_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+@app.get("/telegram/review")
+async def telegram_review(
+    chat_id: str = Query(...),
+    lang: str = Query("en"),
+    db: AsyncSession = Depends(get_db),
+):
     user = await crud.get_user_by_telegram_chat_id(db, chat_id)
     if not user:
-        raise HTTPException(status_code=404, detail="not_linked")
-    return await crud.get_due_review_words(db, user.id)
+        raise HTTPException(status_code=404, detail=tg_t("not_linked", lang))
+    words = await crud.get_due_review_words(db, user.id)
+    if not words:
+        return {"empty": True, "message": tg_t("review_empty", lang), "words": []}
+    return {
+        "empty": False,
+        "message": tg_t("review_header", lang, n=len(words)),
+        "footer": tg_t("review_link", lang),
+        "words": [
+            {"word": w.word, "chinese_meaning": w.chinese_meaning or "—"}
+            for w in words
+        ],
+    }
 
 
 @app.get("/telegram/quiz", response_model=schemas.QuizQuestion)
-async def telegram_quiz(chat_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+async def telegram_quiz(
+    chat_id: str = Query(...),
+    lang: str = Query("en"),
+    db: AsyncSession = Depends(get_db),
+):
     user = await crud.get_user_by_telegram_chat_id(db, chat_id)
     if not user:
-        raise HTTPException(status_code=404, detail="not_linked")
-    q = await crud.get_quiz_question(db, user_id=user.id)
+        raise HTTPException(status_code=404, detail=tg_t("not_linked", lang))
+    q = await crud.get_quiz_question(db, user_id=user.id, lang=lang)
     if q is None:
-        raise HTTPException(status_code=422, detail="Need at least 2 words for quiz")
+        raise HTTPException(status_code=422, detail=tg_t("quiz_not_enough", lang))
     return q
 
 

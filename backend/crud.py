@@ -478,7 +478,8 @@ async def import_words(db: AsyncSession, words_data: list[dict],
 
 # ── Quiz ──────────────────────────────────────────────────────
 
-async def get_quiz_question(db: AsyncSession, user_id: Optional[int] = None) -> Optional[dict]:
+async def get_quiz_question(db: AsyncSession, user_id: Optional[int] = None,
+                            lang: str = "en") -> Optional[dict]:
     words = await get_words(db, user_id=user_id)
     words_with_meaning = [w for w in words if w.chinese_meaning]
     if len(words_with_meaning) < 2:
@@ -495,6 +496,7 @@ async def get_quiz_question(db: AsyncSession, user_id: Optional[int] = None) -> 
     sample_size = min(3, len(distractors))
     picks = random.sample(distractors, sample_size)
 
+    from backend.telegram_i18n import t as tr
     if question_type == "meaning":
         correct_opt = correct.chinese_meaning
         distractor_opts = [w.chinese_meaning for w in picks if w.chinese_meaning]
@@ -502,13 +504,13 @@ async def get_quiz_question(db: AsyncSession, user_id: Optional[int] = None) -> 
             distractor_opts.append("—")
         options_raw = [{"text": correct_opt, "correct": True}] + \
                       [{"text": t, "correct": False} for t in distractor_opts[:3]]
-        question = f'"{correct.word}" ne anlama gelir?'
+        question = tr("quiz_q_meaning", lang, word=correct.word)
     else:
         correct_opt = correct.word
         distractor_opts = [w.word for w in picks]
         options_raw = [{"text": correct_opt, "correct": True}] + \
                       [{"text": t, "correct": False} for t in distractor_opts[:3]]
-        question = f'Hangi kelime "{correct.chinese_meaning}" anlamına gelir?'
+        question = tr("quiz_q_reverse", lang, meaning=correct.chinese_meaning)
 
     random.shuffle(options_raw)
 
