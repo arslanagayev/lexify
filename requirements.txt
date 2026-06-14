@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+aiosqlite
+python-telegram-bot
+python-dotenv
+httpx
+pydantic
+openai
+greenlet
+duckduckgo-search
+apscheduler>=3.10,<4
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+python-multipart
