@@ -122,6 +122,10 @@ export default function SettingsPage() {
           />
         )}
       </div>
+
+      <p className="mt-8 text-center text-white/20 text-xs">
+        <a href="/privacy" className="hover:text-white/40 transition-colors">Privacy Policy</a>
+      </p>
     </div>
   )
 }

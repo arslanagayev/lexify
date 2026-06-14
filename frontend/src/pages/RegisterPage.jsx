@@ -225,6 +225,9 @@ export default function RegisterPage({ onSwitchToLogin, onOpenSettings }) {
           Sign in
         </button>
       </p>
+      <p className="mt-2 text-center text-white/20 text-xs">
+        <a href="/privacy" className="hover:text-white/40 transition-colors">Privacy Policy</a>
+      </p>
     </AuthLayout>
   )
 }

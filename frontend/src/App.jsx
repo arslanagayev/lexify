@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import SettingsPage from './pages/SettingsPage'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 import Header from './components/Header'
 import SearchBar from './components/SearchBar'
 import WordGrid from './components/WordGrid'
@@ -20,6 +21,10 @@ export default function App() {
   const { token, logout } = useAuth()
   const [authPage, setAuthPage] = useState('login')  // 'login' | 'register' | 'forgot'
   const [openSettings, setOpenSettings] = useState(false)
+
+  if (window.location.pathname === '/privacy') {
+    return <PrivacyPolicy />
+  }
 
   if (!token) {
     if (authPage === 'register') {

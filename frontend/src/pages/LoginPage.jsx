@@ -79,6 +79,9 @@ export default function LoginPage({ onSwitchToRegister, onSwitchToForgot }) {
             Create one
           </button>
         </p>
+        <p className="text-white/20 text-xs pt-1">
+          <a href="/privacy" className="hover:text-white/40 transition-colors">Privacy Policy</a>
+        </p>
       </div>
     </AuthLayout>
   )
