@@ -68,8 +68,8 @@ export default function PrivacyPolicy() {
 
           <Section title="5. Your Rights">
             <p className="text-white/55 text-sm leading-relaxed">
-              You can access and correct your account information via Settings. To request deletion of your
-              account and associated data, contact us at{' '}
+              You can access and correct your account information, and permanently delete your account at
+              any time, directly from the Settings page. For any other privacy questions, contact us at{' '}
               <a href="mailto:lexifyvocab@gmail.com" className="text-violet-400 hover:text-violet-300 transition-colors">
                 lexifyvocab@gmail.com
               </a>.

@@ -220,3 +220,18 @@ class ResendRequest(BaseModel):
 class TelegramLanguageRequest(BaseModel):
     chat_id: str
     language: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    first_name: str
+    last_name: str
+    username: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str

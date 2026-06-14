@@ -213,6 +213,48 @@ async def me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+@app.put("/auth/profile", response_model=schemas.UserResponse)
+async def update_profile(
+    body: schemas.ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    first_name = body.first_name.strip()
+    last_name  = body.last_name.strip()
+    username   = body.username.strip()
+    if not first_name or not last_name or not username:
+        raise HTTPException(status_code=422, detail="Fields cannot be empty")
+    if username != current_user.username:
+        existing = await crud.get_user_by_username(db, username)
+        if existing and existing.id != current_user.id:
+            raise HTTPException(status_code=409, detail="Username already taken")
+    return await crud.update_user_profile(db, current_user, first_name, last_name, username)
+
+
+@app.put("/auth/change-password", status_code=204)
+async def change_password(
+    body: schemas.ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    if len(body.new_password) < 6:
+        raise HTTPException(status_code=422, detail="New password must be at least 6 characters")
+    await crud.update_user_password(db, current_user, hash_password(body.new_password))
+
+
+@app.delete("/auth/account", status_code=204)
+async def delete_account(
+    body: schemas.DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(body.password, current_user.password_hash):
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    await crud.delete_user_account(db, current_user)
+
+
 # ── Words ─────────────────────────────────────────────────────
 
 @app.get("/words", response_model=list[schemas.WordResponse])

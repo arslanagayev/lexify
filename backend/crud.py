@@ -56,6 +56,35 @@ async def update_user_password(db: AsyncSession, user: User, new_hash: str) -> N
     await db.commit()
 
 
+async def update_user_profile(
+    db: AsyncSession,
+    user: User,
+    first_name: str,
+    last_name: str,
+    username: str,
+) -> User:
+    user.first_name = first_name.strip()
+    user.last_name = last_name.strip()
+    user.username = username.strip()
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def delete_user_account(db: AsyncSession, user: User) -> None:
+    from sqlalchemy import delete as sql_delete
+    await db.execute(sql_delete(ReviewLog).where(ReviewLog.user_id == user.id))
+    await db.execute(sql_delete(Word).where(Word.user_id == user.id))
+    await db.execute(sql_delete(TelegramLinkCode).where(TelegramLinkCode.user_id == user.id))
+    if user.telegram_chat_id:
+        from backend.models import TelegramLanguage
+        await db.execute(
+            sql_delete(TelegramLanguage).where(TelegramLanguage.chat_id == user.telegram_chat_id)
+        )
+    await db.delete(user)
+    await db.commit()
+
+
 async def get_users_with_telegram_token(db: AsyncSession) -> list[User]:
     result = await db.execute(select(User).where(User.telegram_bot_token.isnot(None)))
     return list(result.scalars().all())
