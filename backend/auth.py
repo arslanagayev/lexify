@@ -185,8 +185,8 @@ def send_verification_email(to_email: str, code: str, first_name: str = "") -> N
   </td></tr>
 </table>"""
 
-    html = _base_template("Verify your Lexify email", body)
-    _send_mail(to_email, f"Verify your Lexify account — {code}", html)
+    html_body = _base_template("Verify your Lexify email", body)
+    _send_mail(to_email, f"Verify your Lexify account — {code}", html_body)
 
 
 def send_reset_email(to_email: str, code: str, first_name: str = "") -> None:
@@ -217,5 +217,5 @@ def send_reset_email(to_email: str, code: str, first_name: str = "") -> None:
   </td></tr>
 </table>"""
 
-    html = _base_template("Reset your Lexify password", body)
-    _send_mail(to_email, f"Reset your Lexify password — {code}", html)
+    html_body = _base_template("Reset your Lexify password", body)
+    _send_mail(to_email, f"Reset your Lexify password — {code}", html_body)
