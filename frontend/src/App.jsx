@@ -14,7 +14,7 @@ import DailyWord from './components/DailyWord'
 import { ToastContainer } from './components/Toast'
 import { useLang } from './i18n/LangContext'
 
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function App() {
   const { token, logout } = useAuth()
@@ -355,7 +355,7 @@ function BackendError({ message, onRetry, t }) {
     <div className="mt-16 max-w-md mx-auto glass rounded-2xl p-8 text-center border border-red-500/20 bg-red-500/5">
       <div className="text-4xl mb-4">🔴</div>
       <p className="text-white/70 font-semibold mb-2">{t.backendError}</p>
-      <p className="text-white/30 text-sm font-mono mb-1">localhost:8000</p>
+      <p className="text-white/30 text-sm font-mono mb-1">{import.meta.env.VITE_API_URL || 'localhost:8000'}</p>
       <p className="text-white/20 text-xs mb-6">{t.backendHint}</p>
       <button
         onClick={onRetry}

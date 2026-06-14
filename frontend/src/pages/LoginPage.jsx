@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import logoSrc from '../assets/logo.png'
 
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function LoginPage({ onSwitchToRegister, onSwitchToForgot }) {
   const { login } = useAuth()

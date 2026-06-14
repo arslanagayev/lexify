@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AuthLayout } from './LoginPage'
 
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function ForgotPasswordPage({ onSwitchToLogin }) {
   const [step, setStep]         = useState('email')  // 'email' | 'reset' | 'done'

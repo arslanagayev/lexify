@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { AuthLayout } from './LoginPage'
 
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const RESEND_COOLDOWN = 30
 
 export default function RegisterPage({ onSwitchToLogin, onOpenSettings }) {
