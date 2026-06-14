@@ -6,6 +6,10 @@ Example Search Agent
   4. DeepSeek (son çare — kendi ürettiği cümle)
 """
 from __future__ import annotations
+
+
+class AIServiceLimitedError(RuntimeError):
+    """Raised when the DeepSeek API is unavailable for any reason."""
 import asyncio
 import json
 import os
@@ -416,6 +420,6 @@ async def enrich_word(word: str) -> dict:
         return data
 
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"DeepSeek returned invalid JSON: {e}") from e
+        raise AIServiceLimitedError(f"DeepSeek returned invalid JSON: {e}") from e
     except Exception as e:
-        raise RuntimeError(f"DeepSeek API error: {e}") from e
+        raise AIServiceLimitedError(f"DeepSeek API error: {e}") from e

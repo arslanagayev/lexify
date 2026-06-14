@@ -177,7 +177,9 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       if (res.status === 401) { handleUnauth(); return }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail || `HTTP ${res.status}`)
+        const detail = err.detail || {}
+        if (detail.error_code === 'ai_service_limited') throw new Error('ai_service_limited')
+        throw new Error(detail.message || (typeof detail === 'string' ? detail : null) || `HTTP ${res.status}`)
       }
       const newWord = await res.json()
       setWords(prev => [newWord, ...prev])

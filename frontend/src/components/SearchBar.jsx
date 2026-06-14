@@ -48,7 +48,9 @@ export default function SearchBar({
         <p className="text-center text-violet-400/70 text-xs mt-2 animate-pulse">{t.analyzing}</p>
       )}
       {addError && (
-        <p className="text-center text-red-400/70 text-xs mt-2">⚠ {addError}</p>
+        <p className="text-center text-red-400/70 text-xs mt-2">
+          {addError === 'ai_service_limited' ? t.aiServiceLimited : `⚠ ${addError}`}
+        </p>
       )}
       {!adding && !addError && value && (
         <p className="text-center text-white/20 text-xs mt-2">{t.enterToAdd}</p>

@@ -21,7 +21,9 @@ from backend.auth import (
     hash_password, verify_password, create_access_token, decode_access_token,
     generate_code, code_expiry, send_verification_email, send_reset_email,
 )
-from backend.agents.word_agent import enrich_word
+import asyncio
+from backend.agents.word_agent import enrich_word, AIServiceLimitedError
+from backend.ai_alerts import send_ai_alert
 from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
@@ -244,8 +246,12 @@ async def add_word(
 
     try:
         data = await enrich_word(word_str)
-    except RuntimeError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+    except AIServiceLimitedError as e:
+        asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
+        raise HTTPException(
+            status_code=503,
+            detail={"error_code": "ai_service_limited", "message": str(e)},
+        )
     word = await crud.create_word(db, data, user_id=current_user.id)
     await crud.log_activity(db)
     return word
@@ -416,8 +422,12 @@ async def telegram_add_word(body: schemas.TelegramWordRequest, db: AsyncSession 
         raise HTTPException(status_code=404, detail="not_linked")
     try:
         data = await enrich_word(body.word.strip())
-    except RuntimeError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+    except AIServiceLimitedError as e:
+        asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
+        raise HTTPException(
+            status_code=503,
+            detail={"error_code": "ai_service_limited", "message": str(e)},
+        )
     word = await crud.create_word(db, data, user_id=user.id)
     await crud.log_activity(db)
     return word
