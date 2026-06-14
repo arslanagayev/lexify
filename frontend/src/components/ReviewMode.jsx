@@ -301,14 +301,57 @@ export default function ReviewMode({ words, onReview }) {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between mt-6 gap-3">
+      <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+        {/* Mobile: Know/Don't-know full-width row (shown first on mobile, hidden on desktop) */}
+        <div className="flex gap-2 sm:hidden">
+          <button onClick={() => handleReview(false)} disabled={submitting}
+            className="flex-1 py-3 rounded-xl text-sm font-medium border transition-all
+                       bg-red-500/10 border-red-500/25 text-red-300 hover:bg-red-500/20 disabled:opacity-40
+                       flex items-center justify-center gap-1.5">
+            {submitting ? <SpinIcon className="w-3.5 h-3.5 animate-spin" /> : <XIcon className="w-3.5 h-3.5" />}
+            {t.dontKnow}
+          </button>
+          <button onClick={() => handleReview(true)} disabled={submitting}
+            className="flex-1 py-3 rounded-xl text-sm font-medium border transition-all
+                       bg-emerald-500/10 border-emerald-500/25 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40
+                       flex items-center justify-center gap-1.5">
+            {submitting ? <SpinIcon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
+            {t.iKnow}
+          </button>
+        </div>
+
+        {/* Prev — hidden on mobile (shown in nav row below) */}
         <button onClick={() => { stopAutoPlay(); goPrev() }}
-          className="glass rounded-xl px-5 py-3 text-sm text-white/50 hover:text-white hover:bg-white/8 transition-all flex items-center gap-2">
+          className="hidden sm:flex glass rounded-xl px-5 py-3 text-sm text-white/50 hover:text-white hover:bg-white/8 transition-all items-center gap-2">
           <ArrowLeftIcon className="w-4 h-4" />{t.prev}
         </button>
 
-        <div className="flex gap-2 items-center">
-          {/* Auto-play toggle */}
+        {/* Mobile nav row: Prev + Auto + Next */}
+        <div className="flex items-center justify-between gap-2 sm:hidden">
+          <button onClick={() => { stopAutoPlay(); goPrev() }}
+            className="glass rounded-xl px-4 py-2.5 text-xs text-white/50 hover:text-white hover:bg-white/8 transition-all flex items-center gap-1.5">
+            <ArrowLeftIcon className="w-3.5 h-3.5" />{t.prev}
+          </button>
+          <button
+            onClick={toggleAutoPlay}
+            title="Auto-play (A)"
+            className={`px-3 py-2.5 rounded-xl text-xs font-medium border transition-all flex items-center gap-1.5
+              ${autoPlay
+                ? 'bg-violet-500/25 border-violet-400/40 text-violet-300'
+                : 'glass border-white/10 text-white/30 hover:text-white/60'}`}
+          >
+            {autoPlay ? <PauseIcon className="w-3.5 h-3.5" /> : <PlayIcon className="w-3.5 h-3.5" />}
+            <span className="text-xs">{t.autoPlay}</span>
+          </button>
+          <button onClick={() => { stopAutoPlay(); goNext() }}
+            className="glass rounded-xl px-4 py-2.5 text-xs text-white/50 hover:text-white hover:bg-white/8 transition-all flex items-center gap-1.5">
+            {t.next}<ArrowRightIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Desktop center: Auto + Don't know + I know */}
+        <div className="hidden sm:flex gap-2 items-center">
           <button
             onClick={toggleAutoPlay}
             title="Auto-play (A)"
@@ -318,9 +361,8 @@ export default function ReviewMode({ words, onReview }) {
                 : 'glass border-white/10 text-white/30 hover:text-white/60'}`}
           >
             {autoPlay ? <PauseIcon className="w-4 h-4" /> : <PlayIcon className="w-4 h-4" />}
-            <span className="hidden sm:inline text-xs">{t.autoPlay}</span>
+            <span className="text-xs">{t.autoPlay}</span>
           </button>
-
           <button onClick={() => handleReview(false)} disabled={submitting}
             className="px-4 py-3 rounded-xl text-sm font-medium border transition-all
                        bg-red-500/10 border-red-500/25 text-red-300 hover:bg-red-500/20 disabled:opacity-40
@@ -337,10 +379,12 @@ export default function ReviewMode({ words, onReview }) {
           </button>
         </div>
 
+        {/* Next — hidden on mobile */}
         <button onClick={() => { stopAutoPlay(); goNext() }}
-          className="glass rounded-xl px-5 py-3 text-sm text-white/50 hover:text-white hover:bg-white/8 transition-all flex items-center gap-2">
+          className="hidden sm:flex glass rounded-xl px-5 py-3 text-sm text-white/50 hover:text-white hover:bg-white/8 transition-all items-center gap-2">
           {t.next}<ArrowRightIcon className="w-4 h-4" />
         </button>
+
       </div>
 
       <p className="text-center text-white/15 text-xs mt-4">
