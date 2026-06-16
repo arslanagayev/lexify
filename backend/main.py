@@ -533,6 +533,33 @@ async def quiz_question(
     return q
 
 
+@app.get("/quiz/fill-blank")
+async def quiz_fill_blank(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    q = await crud.get_fill_blank(db, user_id=current_user.id)
+    if q is None:
+        raise HTTPException(status_code=422, detail="Need words with example sentences for this quiz")
+    return q
+
+
+@app.post("/quiz/fill-blank/{word_id}/answer")
+async def quiz_fill_blank_answer(
+    word_id: int,
+    body: schemas.FillBlankAnswer,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    word = await crud.get_word(db, word_id, user_id=current_user.id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+    is_correct = body.selected_word.strip().lower() == word.word.lower()
+    await crud.update_review(db, word, is_correct)
+    await crud.log_activity(db)
+    return {"correct": is_correct, "correct_word": word.word}
+
+
 # ── Telegram bot setup ────────────────────────────────────────
 
 @app.post("/telegram/setup", response_model=schemas.UserResponse)

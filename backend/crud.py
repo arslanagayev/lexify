@@ -704,3 +704,49 @@ async def get_quiz_question(db: AsyncSession, user_id: Optional[int] = None,
         "question": question,
         "options": options_raw,
     }
+
+
+async def get_fill_blank(db: AsyncSession, user_id: int) -> Optional[dict]:
+    """Pick a non-mastered word whose example sentence contains it; blank it out."""
+    words = await get_words(db, user_id=user_id)
+    import re as _re
+
+    def _blank(w):
+        sent = w.example_sentence or ""
+        if not sent:
+            return None
+        pattern = _re.compile(re_escape(w.word), _re.IGNORECASE)
+        if not pattern.search(sent):
+            return None
+        return pattern.sub("_____", sent, count=1)
+
+    candidates = [
+        (w, _blank(w)) for w in words
+        if w.mastery_status != "mastered"
+    ]
+    candidates = [(w, b) for w, b in candidates if b]
+    if not candidates:
+        # fall back to any word with a usable example sentence
+        candidates = [(w, _blank(w)) for w in words]
+        candidates = [(w, b) for w, b in candidates if b]
+    if not candidates:
+        return None
+
+    correct, blanked = random.choice(candidates)
+    others = [w for w in words if w.id != correct.id]
+    distractors = random.sample(others, min(3, len(others)))
+    options = [correct.word] + [w.word for w in distractors]
+    random.shuffle(options)
+    correct_index = options.index(correct.word)
+
+    return {
+        "word_id": correct.id,
+        "sentence_with_blank": blanked,
+        "options": options,
+        "correct_index": correct_index,
+    }
+
+
+def re_escape(s: str) -> str:
+    import re as _re
+    return _re.escape(s)

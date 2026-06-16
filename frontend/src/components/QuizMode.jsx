@@ -5,6 +5,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function QuizMode({ words, token }) {
   const { t } = useLang()
+  const [quizMode, setQuizMode]   = useState('classic') // 'classic' | 'fillblank'
   const [question, setQuestion]   = useState(null)
   const [loading, setLoading]     = useState(false)
   const [selected, setSelected]   = useState(null) // index of clicked option
@@ -64,11 +65,23 @@ export default function QuizMode({ words, token }) {
     fetchQuestion()
   }
 
+  if (quizMode === 'fillblank') {
+    return (
+      <div className="mt-8 max-w-2xl mx-auto animate-fade-up">
+        <QuizTabs mode={quizMode} setMode={setQuizMode} t={t} />
+        <FillBlankQuiz token={token} t={t} />
+      </div>
+    )
+  }
+
   if (wordsWithMeaning.length < 2) {
     return (
-      <div className="mt-20 flex flex-col items-center gap-4 text-center">
-        <div className="text-5xl">🎯</div>
-        <p className="text-white/40 text-lg">{t.quizEmpty}</p>
+      <div className="mt-8 max-w-2xl mx-auto">
+        <QuizTabs mode={quizMode} setMode={setQuizMode} t={t} />
+        <div className="mt-16 flex flex-col items-center gap-4 text-center">
+          <div className="text-5xl">🎯</div>
+          <p className="text-white/40 text-lg">{t.quizEmpty}</p>
+        </div>
       </div>
     )
   }
@@ -103,6 +116,7 @@ export default function QuizMode({ words, token }) {
 
   return (
     <div className="mt-8 max-w-2xl mx-auto animate-fade-up">
+      <QuizTabs mode={quizMode} setMode={setQuizMode} t={t} />
       {/* Progress bar */}
       <div className="flex justify-between text-xs text-white/30 mb-2">
         <span>{t.quizScore(score.total, sessionLen)}</span>
@@ -172,6 +186,133 @@ export default function QuizMode({ words, token }) {
               </button>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function QuizTabs({ mode, setMode, t }) {
+  const tab = (key, label) => (
+    <button
+      onClick={() => setMode(key)}
+      className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${
+        mode === key
+          ? 'bg-gradient-to-r from-violet-500/25 to-cyan-500/25 text-white border border-violet-500/40'
+          : 'glass border border-white/10 text-white/40 hover:text-white/70'
+      }`}
+    >
+      {label}
+    </button>
+  )
+  return (
+    <div className="flex gap-2 mb-6">
+      {tab('classic', t.quizTabClassic)}
+      {tab('fillblank', t.quizTabFillBlank)}
+    </div>
+  )
+}
+
+function FillBlankQuiz({ token, t }) {
+  const [q, setQ]           = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState(null)
+  const [result, setResult]   = useState(null)
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+
+  const fetchQ = useCallback(async () => {
+    setLoading(true); setSelected(null); setResult(null)
+    try {
+      const res = await fetch(`${API}/quiz/fill-blank`, { headers })
+      if (!res.ok) throw new Error()
+      setQ(await res.json())
+    } catch {
+      setQ(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => { fetchQ() }, [])
+
+  const select = async (idx) => {
+    if (selected !== null || !q) return
+    setSelected(idx)
+    const selectedWord = q.options[idx]
+    try {
+      const res = await fetch(`${API}/quiz/fill-blank/${q.word_id}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ selected_word: selectedWord }),
+      })
+      if (!res.ok) throw new Error()
+      setResult(await res.json())
+    } catch {
+      setResult({ correct: idx === q.correct_index, correct_word: q.options[q.correct_index] })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="glass rounded-3xl p-10 flex items-center justify-center h-80">
+        <SpinIcon className="w-8 h-8 text-violet-400 animate-spin" />
+      </div>
+    )
+  }
+  if (!q) {
+    return (
+      <div className="mt-12 flex flex-col items-center gap-4 text-center">
+        <div className="text-5xl">📝</div>
+        <p className="text-white/40 text-lg">{t.fillBlankEmpty}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="glass rounded-3xl p-8">
+      <p className="text-[11px] uppercase tracking-widest text-white/25 mb-4">{t.quizTabFillBlank}</p>
+      <p className="text-white text-xl font-medium mb-8 leading-relaxed text-center">
+        {q.sentence_with_blank.split('_____').map((part, i, arr) => (
+          <span key={i}>
+            {part}
+            {i < arr.length - 1 && (
+              <span className="inline-block mx-1 px-3 text-violet-300 border-b-2 border-violet-400/50">＿＿＿</span>
+            )}
+          </span>
+        ))}
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {q.options.map((opt, idx) => {
+          let style = 'glass border-white/10 text-white/70 hover:border-violet-500/40 hover:bg-violet-500/5'
+          if (selected !== null) {
+            if (idx === q.correct_index) style = 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+            else if (idx === selected) style = 'bg-red-500/20 border-red-500/50 text-red-300'
+            else style = 'border-white/5 text-white/30'
+          }
+          return (
+            <button key={idx} onClick={() => select(idx)} disabled={selected !== null}
+              className={`w-full text-left px-5 py-4 rounded-2xl border text-sm font-medium transition-all duration-200 ${style}`}>
+              <span className="inline-flex items-center gap-3">
+                <span className="w-6 h-6 rounded-full border border-current flex items-center justify-center text-xs shrink-0">
+                  {selected !== null && idx === q.correct_index ? '✓' : selected === idx ? '✗' : String.fromCharCode(65 + idx)}
+                </span>
+                {opt}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {result && (
+        <div className="mt-6 flex items-center justify-between animate-fade-up">
+          <p className={`font-semibold text-sm ${result.correct ? 'text-emerald-400' : 'text-red-400'}`}>
+            {result.correct ? `✓ ${t.quizCorrect}` : `✗ ${t.quizWrong}`}
+          </p>
+          <button onClick={fetchQ}
+            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-sm font-medium hover:opacity-90 transition-opacity">
+            {t.quizNext}
+          </button>
         </div>
       )}
     </div>

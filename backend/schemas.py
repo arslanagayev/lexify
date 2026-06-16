@@ -257,3 +257,7 @@ class ChatRequest(BaseModel):
 
 class PracticeRequest(BaseModel):
     sentence: str
+
+
+class FillBlankAnswer(BaseModel):
+    selected_word: str
