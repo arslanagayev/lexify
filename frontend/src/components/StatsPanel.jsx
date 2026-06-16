@@ -5,6 +5,7 @@ import { useLang } from '../i18n/LangContext'
 export default function StatsPanel({ words, apiBase, token, onImportComplete }) {
   const { t } = useLang()
   const [stats, setStats]           = useState(null)
+  const [overview, setOverview]     = useState(null)
   const [loading, setLoading]       = useState(true)
   const [reviewLog, setReviewLog]   = useState([])
   const [importMsg, setImportMsg]   = useState(null)
@@ -21,7 +22,22 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
       .then(r => r.json())
       .then(setReviewLog)
       .catch(() => {})
+    fetch(`${apiBase}/stats/overview`, { headers: authHeader })
+      .then(r => r.json())
+      .then(setOverview)
+      .catch(() => {})
   }, [apiBase, words.length])
+
+  // Day labels for the weekly chart (last 7 days, oldest → newest)
+  const weeklyData = overview ? overview.weekly_added.map((added, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    return {
+      day: d.toLocaleDateString(undefined, { weekday: 'short' }),
+      added,
+      mastered: overview.weekly_mastered[i] || 0,
+    }
+  }) : []
 
   const handleExport = async () => {
     const res = await fetch(`${apiBase}/words/export`, { headers: authHeader })
@@ -97,6 +113,58 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
           <UploadIcon className="w-4 h-4" />{t.importWords}
         </button>
         <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
+      </div>
+
+      {/* FAZ 2 — Mastery Overview cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard label={t.totalWords}     value={overview?.total_words ?? '—'}                       icon="📚" color="violet"  loading={!overview} />
+        <StatCard label={t.masteredLabel}  value={overview?.mastered_count ?? '—'}                    icon="✅" color="emerald" loading={!overview} />
+        <StatCard label={t.avgDaysMaster}  value={overview ? `${overview.avg_days_to_master}d` : '—'} icon="⏱️" color="cyan"    loading={!overview} />
+        <StatCard label={t.accuracyRateLabel} value={overview ? `${Math.round(overview.accuracy_rate*100)}%` : '—'} icon="🎯" color="amber" loading={!overview} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Weekly added vs mastered */}
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white/60 mb-4">{t.weeklyProgress}</h3>
+          {!overview ? (
+            <div className="h-48 skeleton rounded-xl" />
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={weeklyData} barCategoryGap="30%">
+                <XAxis dataKey="day" tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill:'rgba(255,255,255,0.2)', fontSize:10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} cursor={{ fill:'rgba(255,255,255,0.04)' }} />
+                <Legend formatter={v => <span style={{ color:'rgba(255,255,255,0.4)', fontSize:11 }}>{v}</span>} />
+                <Bar dataKey="added"    name={t.barAdded}    fill="#38bdf8" radius={[4,4,0,0]} maxBarSize={20} />
+                <Bar dataKey="mastered" name={t.barMastered} fill="#34d399" radius={[4,4,0,0]} maxBarSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Hardest 5 words */}
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white/60 mb-4">{t.hardestWords}</h3>
+          {!overview ? (
+            <div className="h-48 skeleton rounded-xl" />
+          ) : overview.hardest_words.length === 0 ? (
+            <p className="text-white/20 text-sm text-center py-12">{t.noData}</p>
+          ) : (
+            <div className="space-y-2">
+              {overview.hardest_words.map((w, i) => (
+                <div key={w.id} className="flex items-center gap-3 py-1">
+                  <span className="text-white/20 text-xs w-4 shrink-0">{i + 1}</span>
+                  <span className="text-white/80 text-sm font-medium truncate flex-1">{w.word}</span>
+                  <span className="text-white/30 text-xs shrink-0">{t.reviewsShort(w.reviews)}</span>
+                  <span className={`text-xs font-medium w-10 text-right shrink-0 ${
+                    w.accuracy >= 0.7 ? 'text-emerald-400' : w.accuracy >= 0.4 ? 'text-amber-400' : 'text-red-400'
+                  }`}>{Math.round(w.accuracy * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stat cards */}

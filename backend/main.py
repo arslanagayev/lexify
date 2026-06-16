@@ -281,6 +281,28 @@ async def chat(
     return {"reply": reply}
 
 
+# ── Stats ─────────────────────────────────────────────────────
+
+@app.get("/stats/overview")
+async def stats_overview(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await crud.get_stats_overview(db, current_user.id)
+
+
+@app.get("/stats/word/{word_id}")
+async def stats_word(
+    word_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    data = await crud.get_word_stats(db, current_user.id, word_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Word not found")
+    return data
+
+
 # ── Words ─────────────────────────────────────────────────────
 
 @app.get("/words", response_model=list[schemas.WordResponse])

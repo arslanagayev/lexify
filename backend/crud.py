@@ -384,6 +384,100 @@ async def get_stats(db: AsyncSession, user_id: Optional[int] = None) -> dict:
     }
 
 
+async def _review_streak(db: AsyncSession, user_id: int) -> int:
+    """Consecutive days (ending today or yesterday) with at least one review."""
+    rows = await db.execute(
+        select(func.date(ReviewLog.reviewed_at)).where(ReviewLog.user_id == user_id)
+    )
+    days = {str(r[0]) for r in rows.all() if r[0]}
+    if not days:
+        return 0
+    streak, check = 0, date.today()
+    if check.isoformat() not in days:
+        check = check - timedelta(days=1)  # allow streak ending yesterday
+    while check.isoformat() in days:
+        streak += 1
+        check = check - timedelta(days=1)
+    return streak
+
+
+async def get_stats_overview(db: AsyncSession, user_id: int) -> dict:
+    result = await db.execute(select(Word).where(Word.user_id == user_id))
+    words = list(result.scalars().all())
+
+    total = len(words)
+    mastered = [w for w in words if w.mastery_status == "mastered"]
+    learning = [w for w in words if w.mastery_status == "learning"]
+    new = [w for w in words if w.mastery_status == "new"]
+
+    total_reviews = sum(w.review_count for w in words)
+    total_known = sum(w.known_count for w in words)
+    total_unknown = sum(w.unknown_count for w in words)
+    denom = total_known + total_unknown
+    accuracy = round(total_known / denom, 3) if denom else 0.0
+
+    days_to_master = [
+        (w.mastered_at - w.created_at).days
+        for w in mastered
+        if w.mastered_at and w.created_at
+    ]
+    avg_days = round(sum(days_to_master) / len(days_to_master), 1) if days_to_master else 0.0
+
+    weekly_added, weekly_mastered = [], []
+    for i in range(6, -1, -1):
+        d = date.today() - timedelta(days=i)
+        weekly_added.append(sum(1 for w in words if w.created_at and w.created_at.date() == d))
+        weekly_mastered.append(sum(1 for w in mastered if w.mastered_at and w.mastered_at.date() == d))
+
+    hardest = sorted(
+        [w for w in words if w.review_count > 0],
+        key=lambda w: w.difficulty_score, reverse=True,
+    )[:5]
+    hardest_words = [
+        {
+            "id": w.id,
+            "word": w.word,
+            "reviews": w.review_count,
+            "accuracy": round(w.known_count / w.review_count, 3) if w.review_count else 0.0,
+            "difficulty_score": w.difficulty_score,
+        }
+        for w in hardest
+    ]
+
+    return {
+        "total_words": total,
+        "mastered_count": len(mastered),
+        "learning_count": len(learning),
+        "new_count": len(new),
+        "avg_days_to_master": avg_days,
+        "total_reviews": total_reviews,
+        "accuracy_rate": accuracy,
+        "current_streak": await _review_streak(db, user_id),
+        "weekly_added": weekly_added,
+        "weekly_mastered": weekly_mastered,
+        "hardest_words": hardest_words,
+    }
+
+
+async def get_word_stats(db: AsyncSession, user_id: int, word_id: int) -> Optional[dict]:
+    word = await get_word(db, word_id, user_id=user_id)
+    if not word:
+        return None
+    days_to_master = None
+    if word.mastered_at and word.created_at:
+        days_to_master = (word.mastered_at - word.created_at).days
+    accuracy = round(word.known_count / word.review_count, 3) if word.review_count else 0.0
+    return {
+        "word": word.word,
+        "days_to_master": days_to_master,
+        "total_reviews": word.review_count,
+        "accuracy": accuracy,
+        "difficulty_score": word.difficulty_score,
+        "added_at": word.created_at,
+        "mastered_at": word.mastered_at,
+    }
+
+
 # ── Streak ────────────────────────────────────────────────────
 
 async def log_activity(db: AsyncSession) -> None:

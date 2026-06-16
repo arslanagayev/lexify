@@ -72,6 +72,16 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
   const posKey = (w.part_of_speech || '').toLowerCase()
   const posStyle = POS_STYLE[posKey] || POS_DEFAULT
 
+  // Mini stats tooltip (FAZ 2): "X reviews | Y% accuracy | added Zd ago"
+  const reviews = w.review_count || 0
+  const acc = reviews > 0 ? Math.round((w.known_count / reviews) * 100) : 0
+  const daysAgo = w.created_at
+    ? Math.floor((Date.now() - new Date(w.created_at).getTime()) / 86400000)
+    : 0
+  const statTip = reviews > 0
+    ? `${t.reviewsShort(reviews)} | ${acc}% accuracy | ${t.addedAgo(daysAgo)}`
+    : t.addedAgo(daysAgo)
+
   if (editing) {
     return (
       <EditCard
@@ -85,6 +95,7 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
   return (
     <article
       style={style}
+      title={statTip}
       className="glass rounded-2xl p-6 flex flex-col gap-4
                  hover:bg-white/[0.07] hover:border-white/14
                  hover:-translate-y-1 hover:shadow-2xl hover:shadow-violet-500/10
