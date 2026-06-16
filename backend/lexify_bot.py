@@ -88,8 +88,10 @@ _VOCAB_KW = re.compile(
 # Pronunciation request patterns — each captures the target word/phrase in group 1
 _PRONOUNCE_PATTERNS = [
     re.compile(r"^(?:pronounce|say)\s+(.+)$", re.IGNORECASE),
+    re.compile(r"^(?:sound\s+of)\s+(.+)$", re.IGNORECASE),
     re.compile(r"^how\s+(?:to|do\s+you|do\s+i|can\s+i)\s+say\s+(.+)$", re.IGNORECASE),
     re.compile(r"^(.+?)\s+nasıl\s+(?:okunur|telaffuz\s+edilir|söylenir|denir|okunuyor)\s*\??$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+telaffuz(?:u|\s+et)?\s*\??$", re.IGNORECASE),
     re.compile(r"^(.+?)\s+(?:怎么(?:读|说)|的发音)\s*[?？]?$"),
     re.compile(r"^как\s+(?:произносится|сказать)\s+(.+)$", re.IGNORECASE),
 ]
@@ -458,6 +460,9 @@ async def _cmd_pronounce(
     word = _extract_pronounce(text)
     if not word:
         return "Usage: pronounce [word]"
+
+    # Send a text heads-up first, then the audio
+    await _send(client, chat_id, f"🔊 <b>{word}</b> — sending audio…")
 
     # English pronunciation of the word (no account link required)
     en_audio = await synthesize_ogg(word, EN_VOICE)
