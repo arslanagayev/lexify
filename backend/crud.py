@@ -185,12 +185,15 @@ async def verify_code(db: AsyncSession, email: str, code: str, purpose: str) -> 
 # ── Words ─────────────────────────────────────────────────────
 
 async def get_words(db: AsyncSession, q: Optional[str] = None,
-                    user_id: Optional[int] = None) -> list:
+                    user_id: Optional[int] = None,
+                    status: Optional[str] = None) -> list:
     stmt = select(Word).order_by(Word.created_at.desc())
     if user_id is not None:
         stmt = stmt.where(Word.user_id == user_id)
     if q:
         stmt = stmt.where(Word.word.ilike(f"%{q}%"))
+    if status and status in ("new", "learning", "mastered"):
+        stmt = stmt.where(Word.mastery_status == status)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -265,7 +268,16 @@ async def _recompute_mastery(db: AsyncSession, word: Word) -> None:
         .order_by(ReviewLog.reviewed_at.desc())
         .limit(5)
     )
-    word.mastery_status = _mastery_from_results([int(k) for k in rows.scalars().all()])
+    new_status = _mastery_from_results([int(k) for k in rows.scalars().all()])
+    # Stamp mastered_at while mastered (covers transition + backfill); clear on fall-back
+    if new_status == "mastered":
+        if word.mastered_at is None:
+            word.mastered_at = word.last_reviewed or datetime.now(timezone.utc)
+    else:
+        word.mastered_at = None
+    word.mastery_status = new_status
+    # difficulty: more reviews per correct answer => harder
+    word.difficulty_score = round(word.review_count / (word.known_count + 1), 3)
 
 
 async def update_review(db: AsyncSession, word: Word, known: bool) -> Word:

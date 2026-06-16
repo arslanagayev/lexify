@@ -109,7 +109,13 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
           {w.mastery_status === 'mastered' && (
             <span className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              {t.badgeMastered}
+              {t.badgeMastered} ✓
+            </span>
+          )}
+          {w.mastery_status === 'learning' && (
+            <span className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              {t.badgeLearning}
             </span>
           )}
           {w.mastery_status === 'new' && (

@@ -132,6 +132,8 @@ class WordResponse(BaseModel):
     known_count: int = 0
     unknown_count: int = 0
     mastery_status: str = "new"
+    mastered_at: Optional[datetime] = None
+    difficulty_score: float = 0.0
     interval_days: int = 1
     last_reviewed: Optional[datetime] = None
     next_review: Optional[datetime] = None
