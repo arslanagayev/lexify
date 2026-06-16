@@ -140,6 +140,13 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
               {w.part_of_speech}
             </span>
           )}
+          {(w.synonyms || w.antonyms || w.collocations) && onOpenMap && (
+            <button onClick={() => onOpenMap(w)}
+              className="p-1.5 rounded-lg text-white/20 hover:text-cyan-300 hover:bg-cyan-500/10 transition-all opacity-0 group-hover:opacity-100"
+              title={t.wordMapTip}>
+              <MapIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button onClick={startEdit}
             className="p-1.5 rounded-lg text-white/20 hover:text-violet-300 hover:bg-violet-500/10 transition-all opacity-0 group-hover:opacity-100"
             title={t.editTip}>
@@ -385,6 +392,16 @@ function SpeakerIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+    </svg>
+  )
+}
+function MapIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="5" cy="18" r="2" />
+      <circle cx="19" cy="18" r="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v3m0 0l-5.5 6.5M12 10l5.5 6.5" />
     </svg>
   )
 }

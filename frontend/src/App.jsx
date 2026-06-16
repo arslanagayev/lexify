@@ -16,6 +16,7 @@ import { ToastContainer } from './components/Toast'
 import FloatingChatWidget from './components/FloatingChatWidget'
 import ImportWordsModal from './components/ImportWordsModal'
 import DiscoverPanel from './components/DiscoverPanel'
+import WordMapModal from './components/WordMapModal'
 import { useLang } from './i18n/LangContext'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -68,6 +69,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [tagFilter, setTagFilter] = useState('')
   const [masteryFilter, setMasteryFilter] = useState('all')
   const [showImport, setShowImport] = useState(false)
+  const [mapWord, setMapWord] = useState(null)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
   const [adding, setAdding]       = useState(false)
@@ -329,6 +331,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                   onDelete={handleDelete}
                   onEditOpen={onEditOpen}
                   onEditClose={onEditClose}
+                  onOpenMap={setMapWord}
                 />
                   </>
                 )}
@@ -363,6 +366,10 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
           onClose={() => setShowImport(false)}
           onComplete={fetchWords}
         />
+      )}
+
+      {mapWord && (
+        <WordMapModal word={mapWord} words={words} onClose={() => setMapWord(null)} />
       )}
     </div>
   )
