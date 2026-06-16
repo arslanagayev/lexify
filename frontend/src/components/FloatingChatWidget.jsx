@@ -1,8 +1,70 @@
 import { useState, useRef, useEffect } from 'react'
 
+// Lightweight markdown renderer (bold, inline code, bullet/numbered lists).
+// Avoids a heavy dependency while still rendering the tutor's formatting.
+function renderInline(text, keyPrefix) {
+  const parts = []
+  const re = /(\*\*([^*]+)\*\*|`([^`]+)`)/g
+  let last = 0, m, i = 0
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index))
+    if (m[2] !== undefined) {
+      parts.push(<strong key={`${keyPrefix}-b${i}`} className="text-white font-semibold">{m[2]}</strong>)
+    } else if (m[3] !== undefined) {
+      parts.push(<code key={`${keyPrefix}-c${i}`} className="bg-white/10 px-1 py-0.5 rounded text-[0.85em]">{m[3]}</code>)
+    }
+    last = m.index + m[0].length
+    i++
+  }
+  if (last < text.length) parts.push(text.slice(last))
+  return parts
+}
+
+function Markdown({ content }) {
+  const lines = content.split('\n')
+  const blocks = []
+  let list = null  // { ordered, items: [] }
+
+  const flush = () => {
+    if (list) {
+      const Tag = list.ordered ? 'ol' : 'ul'
+      blocks.push(
+        <Tag key={`l${blocks.length}`} className={`my-1.5 pl-5 ${list.ordered ? 'list-decimal' : 'list-disc'} space-y-0.5`}>
+          {list.items.map((it, j) => <li key={j}>{renderInline(it, `l${blocks.length}-${j}`)}</li>)}
+        </Tag>
+      )
+      list = null
+    }
+  }
+
+  lines.forEach((line, idx) => {
+    const ul = line.match(/^\s*[-*]\s+(.+)$/)
+    const ol = line.match(/^\s*\d+\.\s+(.+)$/)
+    if (ul) {
+      if (!list || list.ordered) { flush(); list = { ordered: false, items: [] } }
+      list.items.push(ul[1])
+    } else if (ol) {
+      if (!list || !list.ordered) { flush(); list = { ordered: true, items: [] } }
+      list.items.push(ol[1])
+    } else {
+      flush()
+      if (line.trim()) {
+        blocks.push(<p key={`p${idx}`} className="my-1">{renderInline(line, `p${idx}`)}</p>)
+      }
+    }
+  })
+  flush()
+  return <>{blocks}</>
+}
+
+const WELCOME = {
+  role: 'assistant',
+  content: "Hi! I'm your Lexify AI Tutor. Ask me about any English word or grammar point! 📚",
+}
+
 export default function FloatingChatWidget({ apiBase, token }) {
   const [open, setOpen]       = useState(false)
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState([WELCOME])
   const [input, setInput]     = useState('')
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef(null)
@@ -77,7 +139,7 @@ export default function FloatingChatWidget({ apiBase, token }) {
       {open && (
         <div
           className="fixed bottom-24 right-4 sm:right-6 z-50 flex flex-col
-                     w-[calc(100vw-2rem)] sm:w-[380px] h-[500px] max-h-[calc(100vh-8rem)]
+                     w-[calc(100vw-2rem)] sm:w-[380px] h-[520px] max-h-[calc(100vh-8rem)]
                      glass rounded-2xl border border-white/10 shadow-2xl shadow-black/50
                      overflow-hidden animate-[fadeIn_0.15s_ease-out]"
         >
@@ -87,43 +149,47 @@ export default function FloatingChatWidget({ apiBase, token }) {
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-sky-500
                               flex items-center justify-center text-sm">🤖</div>
               <div>
-                <h3 className="text-sm font-semibold grad-text leading-tight">Lexify Assistant</h3>
-                <p className="text-[10px] text-white/35 leading-tight">AI language tutor</p>
+                <h3 className="text-sm font-semibold grad-text leading-tight">Lexify AI Tutor 🎓</h3>
+                <p className="text-[10px] text-white/35 leading-tight">English learning assistant</p>
               </div>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-white/40 hover:text-white/80 transition-colors p-1"
-              aria-label="Close chat"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setMessages([WELCOME])}
+                className="text-white/40 hover:text-white/80 transition-colors p-1"
+                aria-label="Clear chat"
+                title="Clear conversation"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-white/40 hover:text-white/80 transition-colors p-1"
+                aria-label="Close chat"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-            {messages.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                <div className="text-3xl mb-3">💬</div>
-                <p className="text-white/50 text-sm font-medium mb-1">Ask me anything about languages</p>
-                <p className="text-white/30 text-xs leading-relaxed">
-                  Word meanings, grammar, pronunciation, translations, example sentences…
-                </p>
-              </div>
-            )}
-
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                  className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
                     m.role === 'user'
-                      ? 'bg-gradient-to-br from-violet-600/80 to-sky-600/80 text-white rounded-br-md'
-                      : 'glass border-white/8 text-white/85 rounded-bl-md'
+                      ? 'bg-gradient-to-br from-violet-600/80 to-sky-600/80 text-white rounded-br-md whitespace-pre-wrap'
+                      : 'glass border-white/8 text-white/85 rounded-bl-md chat-md'
                   }`}
                 >
-                  {m.content}
+                  {m.role === 'user'
+                    ? m.content
+                    : <Markdown content={m.content} />}
                 </div>
               </div>
             ))}
