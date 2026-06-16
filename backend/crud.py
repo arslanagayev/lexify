@@ -584,6 +584,36 @@ async def get_user_by_telegram_chat_id(db: AsyncSession, chat_id: str) -> Option
     return result.scalar_one_or_none()
 
 
+async def get_daily_notification(db: AsyncSession, chat_id: str) -> bool:
+    row = await db.get(TelegramLanguage, chat_id)
+    return bool(row.daily_notification) if row else True
+
+
+async def set_daily_notification(db: AsyncSession, chat_id: str, enabled: bool) -> None:
+    row = await db.get(TelegramLanguage, chat_id)
+    if row:
+        row.daily_notification = 1 if enabled else 0
+    else:
+        db.add(TelegramLanguage(chat_id=chat_id, language="en", daily_notification=1 if enabled else 0))
+    await db.commit()
+
+
+async def get_linked_users(db: AsyncSession) -> list[User]:
+    result = await db.execute(select(User).where(User.telegram_chat_id.isnot(None)))
+    return list(result.scalars().all())
+
+
+async def get_random_unmastered_word(db: AsyncSession, user_id: int) -> Optional[Word]:
+    result = await db.execute(
+        select(Word).where(Word.user_id == user_id).where(Word.mastery_status != "mastered")
+    )
+    words = list(result.scalars().all())
+    if not words:
+        result = await db.execute(select(Word).where(Word.user_id == user_id))
+        words = list(result.scalars().all())
+    return random.choice(words) if words else None
+
+
 async def get_due_review_words(
     db: AsyncSession, user_id: int, limit: int = 10, include_mastered: bool = False
 ) -> list:

@@ -125,3 +125,6 @@ class TelegramLanguage(Base):
 
     chat_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     language: Mapped[str] = mapped_column(String(5), nullable=False, server_default="en")
+    daily_notification: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1", nullable=False
+    )

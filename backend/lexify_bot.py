@@ -113,6 +113,8 @@ def _classify(text: str) -> str:
         return "LINK"
     if re.match(r"^/language", t, re.IGNORECASE):
         return "LANGUAGE"
+    if re.match(r"^/daily\b", t, re.IGNORECASE):
+        return "DAILY"
     if re.match(r"^add\s+\S", t, re.IGNORECASE):
         return "ADD"
     if re.match(r"^query\s+\S", t, re.IGNORECASE):
@@ -283,6 +285,32 @@ async def _cmd_language(client: httpx.AsyncClient, chat_id: str, text: str, lang
         pass
     return {"en": "Language set to English ✅", "tr": "Dil Türkçe olarak ayarlandı ✅",
             "ru": "Язык изменён на Русский ✅", "zh": "语言已设置为中文 ✅"}.get(code, "✅")
+
+
+async def _cmd_daily(client: httpx.AsyncClient, chat_id: str, text: str, lang: str) -> str:
+    parts = text.strip().split()
+    arg = parts[1].lower() if len(parts) > 1 else ""
+    if arg not in ("on", "off"):
+        return {
+            "en": "Daily word notifications. Use:\n/daily on — enable\n/daily off — disable",
+            "tr": "Günlük kelime bildirimleri. Kullan:\n/daily on — aç\n/daily off — kapat",
+            "ru": "Ежедневные уведомления. Используйте:\n/daily on — включить\n/daily off — выключить",
+            "zh": "每日单词通知。使用：\n/daily on — 开启\n/daily off — 关闭",
+        }.get(lang, "Use /daily on or /daily off")
+    enabled = arg == "on"
+    try:
+        await client.post(
+            f"{BACKEND_URL}/telegram/daily",
+            json={"chat_id": chat_id, "enabled": enabled},
+            timeout=8,
+        )
+    except Exception:
+        return "❌ Service error. Please try again."
+    if enabled:
+        return {"en": "✅ Daily word notifications enabled.", "tr": "✅ Günlük kelime bildirimleri açıldı.",
+                "ru": "✅ Ежедневные уведомления включены.", "zh": "✅ 每日单词通知已开启。"}.get(lang, "✅ Enabled.")
+    return {"en": "🔕 Daily word notifications disabled.", "tr": "🔕 Günlük kelime bildirimleri kapatıldı.",
+            "ru": "🔕 Ежедневные уведомления выключены.", "zh": "🔕 每日单词通知已关闭。"}.get(lang, "🔕 Disabled.")
 
 
 async def _cmd_add(client: httpx.AsyncClient, chat_id: str, text: str, lang: str) -> str:
@@ -534,6 +562,8 @@ async def _dispatch(client: httpx.AsyncClient, chat_id: str, text: str) -> Optio
         return await _cmd_link(client, chat_id, text, lang)
     if cat == "LANGUAGE":
         return await _cmd_language(client, chat_id, text, lang)
+    if cat == "DAILY":
+        return await _cmd_daily(client, chat_id, text, lang)
     if cat == "ADD":
         return await _cmd_add(client, chat_id, text, lang)
     if cat == "QUERY":

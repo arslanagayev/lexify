@@ -231,6 +231,11 @@ class TelegramLanguageRequest(BaseModel):
     language: str
 
 
+class TelegramDailyRequest(BaseModel):
+    chat_id: str
+    enabled: bool
+
+
 class ProfileUpdateRequest(BaseModel):
     first_name: str
     last_name: str

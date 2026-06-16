@@ -692,3 +692,62 @@ async def set_telegram_language(body: schemas.TelegramLanguageRequest, db: Async
         raise HTTPException(status_code=400, detail=f"Invalid language. Choose: en, tr, ru, zh")
     await crud.set_telegram_language(db, body.chat_id, body.language)
     return {"chat_id": body.chat_id, "language": body.language}
+
+
+@app.post("/telegram/daily")
+async def telegram_set_daily(
+    body: schemas.TelegramDailyRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    await crud.set_daily_notification(db, body.chat_id, body.enabled)
+    return {"chat_id": body.chat_id, "enabled": body.enabled}
+
+
+@app.post("/telegram/send-daily")
+async def telegram_send_daily(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    # Internal-only: protected by a bearer token from the environment
+    internal = os.getenv("INTERNAL_TOKEN", "")
+    auth = request.headers.get("authorization", "")
+    if not internal or auth != f"Bearer {internal}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    import httpx
+    bot_token = os.getenv("LEXIFY_ASSISTANT_BOT_TOKEN", "")
+    if not bot_token:
+        raise HTTPException(status_code=500, detail="Bot not configured")
+
+    users = await crud.get_linked_users(db)
+    sent = 0
+    async with httpx.AsyncClient(timeout=15) as client:
+        for user in users:
+            chat_id = user.telegram_chat_id
+            if not chat_id or not await crud.get_daily_notification(db, chat_id):
+                continue
+            word = await crud.get_random_unmastered_word(db, user.id)
+            if not word:
+                continue
+            lang = await crud.get_telegram_language(db, chat_id)
+            prompt = {
+                "en": "Type 'review' to practice this word! 💪",
+                "tr": "Bu kelimeyi çalışmak için 'review' yaz! 💪",
+                "ru": "Напишите 'review', чтобы повторить это слово! 💪",
+                "zh": "输入 'review' 来练习这个单词！💪",
+            }.get(lang, "Type 'review' to practice this word! 💪")
+            msg = (
+                f"📖 <b>{word.word}</b> {word.phonetic or ''}\n\n"
+                f"{word.chinese_meaning or ''}\n"
+                f"<i>{word.example_sentence or ''}</i>\n\n"
+                f"{prompt}"
+            )
+            try:
+                await client.post(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    json={"chat_id": chat_id, "text": msg, "parse_mode": "HTML"},
+                )
+                sent += 1
+            except Exception:
+                pass
+    return {"sent": sent}
