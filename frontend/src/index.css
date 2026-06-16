@@ -117,3 +117,9 @@
 .sound-bar:nth-child(2) { animation-delay: 0.15s; }
 .sound-bar:nth-child(3) { animation-delay: 0.3s; }
 .sound-bar:nth-child(4) { animation-delay: 0.15s; }
+
+/* ── Chat widget fade-in ──────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

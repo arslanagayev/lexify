@@ -13,6 +13,7 @@ import QuizMode from './components/QuizMode'
 import StatsPanel from './components/StatsPanel'
 import DailyWord from './components/DailyWord'
 import { ToastContainer } from './components/Toast'
+import FloatingChatWidget from './components/FloatingChatWidget'
 import { useLang } from './i18n/LangContext'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -323,6 +324,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       </main>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      <FloatingChatWidget apiBase={API} token={token} />
     </div>
   )
 }

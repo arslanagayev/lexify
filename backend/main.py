@@ -28,6 +28,7 @@ from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
 from backend.lexify_bot import poll_loop as lexify_bot_poll
+from backend.chat import chat_completion, sanitize_history
 
 
 @asynccontextmanager
@@ -255,6 +256,29 @@ async def delete_account(
     if not verify_password(body.password, current_user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect password")
     await crud.delete_user_account(db, current_user)
+
+
+# ── AI Chat ───────────────────────────────────────────────────
+
+@app.post("/api/chat")
+@limiter.limit("20/minute")
+async def chat(
+    request: Request,
+    body: schemas.ChatRequest,
+    current_user: User = Depends(get_current_user),
+):
+    history = sanitize_history(body.messages)
+    if not history or history[-1]["role"] != "user":
+        raise HTTPException(status_code=422, detail="Last message must be from the user")
+    try:
+        reply = await chat_completion(history)
+    except Exception as e:
+        asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
+        raise HTTPException(
+            status_code=503,
+            detail={"error_code": "ai_service_limited", "message": str(e)},
+        )
+    return {"reply": reply}
 
 
 # ── Words ─────────────────────────────────────────────────────
