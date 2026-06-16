@@ -15,3 +15,4 @@ passlib[bcrypt]
 bcrypt
 python-multipart
 slowapi
+edge-tts

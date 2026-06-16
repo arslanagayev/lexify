@@ -18,6 +18,8 @@ from typing import Optional
 
 import httpx
 
+from backend.tts import synthesize_ogg, EN_VOICE, ZH_VOICE
+
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -83,6 +85,25 @@ _VOCAB_KW = re.compile(
     re.IGNORECASE,
 )
 
+# Pronunciation request patterns — each captures the target word/phrase in group 1
+_PRONOUNCE_PATTERNS = [
+    re.compile(r"^(?:pronounce|say)\s+(.+)$", re.IGNORECASE),
+    re.compile(r"^how\s+(?:to|do\s+you|do\s+i|can\s+i)\s+say\s+(.+)$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+nasıl\s+(?:okunur|telaffuz\s+edilir|söylenir|denir|okunuyor)\s*\??$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+(?:怎么(?:读|说)|的发音)\s*[?？]?$"),
+    re.compile(r"^как\s+(?:произносится|сказать)\s+(.+)$", re.IGNORECASE),
+]
+
+def _extract_pronounce(text: str) -> Optional[str]:
+    t = text.strip()
+    for pat in _PRONOUNCE_PATTERNS:
+        m = pat.match(t)
+        if m:
+            word = m.group(1).strip().strip('"\'.,!?¿¡。，！？ ')
+            if 0 < len(word) <= 50:
+                return word
+    return None
+
 def _classify(text: str) -> str:
     t = text.strip()
     tl = t.lower()
@@ -100,6 +121,8 @@ def _classify(text: str) -> str:
         return "QUIZ"
     if re.match(r"^[1-4]$", t.strip()):
         return "QUIZ_ANSWER"
+    if _extract_pronounce(t):
+        return "PRONOUNCE"
     if _VOCAB_KW.search(t):
         return "VOCAB_QUESTION"
     return "INVALID"
@@ -130,6 +153,23 @@ async def _send(client: httpx.AsyncClient, chat_id: str, text: str) -> None:
     except Exception as e:
         logger.warning("sendMessage failed: %s", e)
 
+
+async def _send_voice(
+    client: httpx.AsyncClient, chat_id: str, audio: bytes, caption: Optional[str] = None
+) -> None:
+    try:
+        data = {"chat_id": chat_id}
+        if caption:
+            data["caption"] = caption
+        await client.post(
+            f"{TG_API}/sendVoice",
+            data=data,
+            files={"voice": ("pronunciation.ogg", audio, "audio/ogg")},
+            timeout=30,
+        )
+    except Exception as e:
+        logger.warning("sendVoice failed: %s", e)
+
 async def _get_lang(client: httpx.AsyncClient, chat_id: str) -> str:
     try:
         r = await client.get(
@@ -156,6 +196,7 @@ _INVALID_REPLY = {
         "Try:\n"
         "• add [word] — add a word to your list\n"
         "• query [word] — look up a word\n"
+        "• pronounce [word] — hear it spoken\n"
         "• review — words due for review\n"
         "• quiz — take a quiz\n"
         "• What does [word] mean? — vocabulary question"
@@ -165,6 +206,7 @@ _INVALID_REPLY = {
         "Komutlar:\n"
         "• add [kelime] — kelime ekle\n"
         "• query [kelime] — kelime ara\n"
+        "• [kelime] nasıl okunur — sesli telaffuz\n"
         "• review — tekrar listesi\n"
         "• quiz — test\n"
         "• [kelime] ne demek? — kelime sorusu"
@@ -174,6 +216,7 @@ _INVALID_REPLY = {
         "Команды:\n"
         "• add [слово] — добавить слово\n"
         "• query [слово] — найти слово\n"
+        "• pronounce [слово] — озвучить\n"
         "• review — список повторения\n"
         "• quiz — тест"
     ),
@@ -182,6 +225,7 @@ _INVALID_REPLY = {
         "命令：\n"
         "• add [单词] — 添加单词\n"
         "• query [单词] — 查找单词\n"
+        "• pronounce [单词] — 朗读发音\n"
         "• review — 复习列表\n"
         "• quiz — 测验"
     ),
@@ -408,6 +452,44 @@ def _cmd_quiz_answer(chat_id: str, text: str, lang: str) -> str:
     return "Please reply with 1, 2, 3 or 4."
 
 
+async def _cmd_pronounce(
+    client: httpx.AsyncClient, chat_id: str, text: str, lang: str
+) -> Optional[str]:
+    word = _extract_pronounce(text)
+    if not word:
+        return "Usage: pronounce [word]"
+
+    # English pronunciation of the word (no account link required)
+    en_audio = await synthesize_ogg(word, EN_VOICE)
+    if not en_audio:
+        return {
+            "en": "❌ Could not generate pronunciation. Please try again.",
+            "tr": "❌ Telaffuz oluşturulamadı. Lütfen tekrar deneyin.",
+            "ru": "❌ Не удалось создать произношение. Попробуйте снова.",
+            "zh": "❌ 无法生成发音，请重试。",
+        }.get(lang, "❌ Could not generate pronunciation.")
+    await _send_voice(client, chat_id, en_audio, caption=f"🔊 {word}")
+
+    # Chinese voice of the meaning — best effort, only if the word is in the user's list
+    try:
+        r = await client.get(
+            f"{BACKEND_URL}/telegram/words", params={"chat_id": chat_id}, timeout=10
+        )
+        if r.status_code == 200:
+            found = next(
+                (w for w in r.json() if w.get("word", "").lower() == word.lower()), None
+            )
+            zh_text = found.get("chinese_meaning", "").strip() if found else ""
+            if zh_text:
+                zh_audio = await synthesize_ogg(zh_text, ZH_VOICE)
+                if zh_audio:
+                    await _send_voice(client, chat_id, zh_audio, caption=f"🔊 {zh_text}")
+    except Exception as e:
+        logger.warning("pronounce zh lookup failed: %s", e)
+
+    return None  # voice already sent, no text reply needed
+
+
 async def _vocab_question(question: str) -> str:
     if not DEEPSEEK_KEY:
         return "AI service not configured."
@@ -435,7 +517,7 @@ async def _vocab_question(question: str) -> str:
 
 # ── Main dispatcher ───────────────────────────────────────────────────────────
 
-async def _dispatch(client: httpx.AsyncClient, chat_id: str, text: str) -> str:
+async def _dispatch(client: httpx.AsyncClient, chat_id: str, text: str) -> Optional[str]:
     block = _filter(text)
     if block:
         return block
@@ -457,6 +539,8 @@ async def _dispatch(client: httpx.AsyncClient, chat_id: str, text: str) -> str:
         return await _cmd_quiz(client, chat_id, lang)
     if cat == "QUIZ_ANSWER":
         return _cmd_quiz_answer(chat_id, text, lang)
+    if cat == "PRONOUNCE":
+        return await _cmd_pronounce(client, chat_id, text, lang)
     if cat == "VOCAB_QUESTION":
         return await _vocab_question(text)
     return _INVALID_REPLY.get(lang, _INVALID_REPLY["en"])
@@ -500,6 +584,7 @@ async def poll_loop() -> None:
 async def _process(client: httpx.AsyncClient, chat_id: str, text: str) -> None:
     try:
         reply = await _dispatch(client, chat_id, text)
-        await _send(client, chat_id, reply)
+        if reply:  # None means a handler already sent its own message (e.g. voice)
+            await _send(client, chat_id, reply)
     except Exception as e:
         logger.exception("Processing error for chat %s: %s", chat_id, e)
