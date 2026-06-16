@@ -14,6 +14,7 @@ import StatsPanel from './components/StatsPanel'
 import DailyWord from './components/DailyWord'
 import { ToastContainer } from './components/Toast'
 import FloatingChatWidget from './components/FloatingChatWidget'
+import ImportWordsModal from './components/ImportWordsModal'
 import { useLang } from './i18n/LangContext'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -65,6 +66,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [query, setQuery]         = useState('')
   const [tagFilter, setTagFilter] = useState('')
   const [masteryFilter, setMasteryFilter] = useState('all')
+  const [showImport, setShowImport] = useState(false)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
   const [adding, setAdding]       = useState(false)
@@ -295,13 +297,21 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                 {mode === 'grid' && (
                   <>
                     <DailyWord words={words} />
-                    <FilterBar
-                      active={masteryFilter}
-                      onChange={setMasteryFilter}
-                      counts={masteryCounts}
-                      total={words.length}
-                      t={t}
-                    />
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <FilterBar
+                        active={masteryFilter}
+                        onChange={setMasteryFilter}
+                        counts={masteryCounts}
+                        total={words.length}
+                        t={t}
+                      />
+                      <button
+                        onClick={() => setShowImport(true)}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-white/50 hover:text-white transition-all mt-5"
+                      >
+                        📥 {t.importWordsBtn}
+                      </button>
+                    </div>
                     {allTags.length > 0 && (
                       <TagFilter
                         tags={allTags}
@@ -342,6 +352,15 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <FloatingChatWidget apiBase={API} token={token} />
+
+      {showImport && (
+        <ImportWordsModal
+          apiBase={API}
+          token={token}
+          onClose={() => setShowImport(false)}
+          onComplete={fetchWords}
+        />
+      )}
     </div>
   )
 }

@@ -4,7 +4,7 @@ import os
 import re
 from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException, Query, Request, status
+from fastapi import FastAPI, Depends, HTTPException, Query, Request, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -465,6 +465,59 @@ async def import_words(
     db: AsyncSession = Depends(get_db),
 ):
     return await crud.import_words(db, body, user_id=current_user.id)
+
+
+@app.post("/words/import-file", response_model=schemas.FileImportResponse)
+@limiter.limit("3/minute")
+async def import_words_file(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from backend.word_import import parse_import_file
+    content = await file.read()
+    if len(content) > 1_000_000:
+        raise HTTPException(status_code=413, detail="File too large (max 1 MB)")
+    try:
+        rows = parse_import_file(file.filename or "", content)
+    except Exception:
+        raise HTTPException(status_code=422, detail="Could not read file. Use CSV or Excel (.xlsx).")
+    if not rows:
+        raise HTTPException(status_code=422, detail="No words found. Expected a 'word' column.")
+
+    imported, skipped, errors = 0, 0, []
+
+    async def _one(row: dict):
+        nonlocal imported, skipped
+        word_str = row["word"].strip()
+        if not word_str or len(word_str) > 50 or not _WORD_RE.match(word_str):
+            errors.append(f"{word_str[:30]}: invalid")
+            return
+        existing = await crud.get_word_by_text(db, word_str, user_id=current_user.id)
+        if existing:
+            skipped += 1
+            return
+        try:
+            data = await enrich_word(word_str)
+        except Exception:
+            errors.append(f"{word_str}: enrichment failed")
+            return
+        if row.get("notes"):
+            data["tags"] = ((data.get("tags") or "") + "," + row["notes"]).strip(",")
+        await crud.create_word(db, data, user_id=current_user.id)
+        imported += 1
+
+    # Enrich a few at a time to bound wall-clock without hammering the AI API
+    sem = asyncio.Semaphore(3)
+    async def _guarded(row):
+        async with sem:
+            await _one(row)
+    await asyncio.gather(*[_guarded(r) for r in rows])
+
+    if imported:
+        await crud.log_activity(db)
+    return {"imported": imported, "skipped": skipped, "errors": errors}
 
 
 # ── Quiz ──────────────────────────────────────────────────────

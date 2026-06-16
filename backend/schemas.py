@@ -183,6 +183,12 @@ class ImportResponse(BaseModel):
     skipped: int
 
 
+class FileImportResponse(BaseModel):
+    imported: int
+    skipped: int
+    errors: list[str] = []
+
+
 class ReviewLogEntry(BaseModel):
     id: int
     word_id: int

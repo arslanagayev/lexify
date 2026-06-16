@@ -16,3 +16,4 @@ bcrypt
 python-multipart
 slowapi
 edge-tts
+openpyxl
