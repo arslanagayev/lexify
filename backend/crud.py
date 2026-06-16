@@ -614,6 +614,66 @@ async def get_random_unmastered_word(db: AsyncSession, user_id: int) -> Optional
     return random.choice(words) if words else None
 
 
+_CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
+_CEFR_NUM = {lvl: i + 1 for i, lvl in enumerate(_CEFR_ORDER)}
+
+
+async def seed_cefr_words(db: AsyncSession) -> int:
+    from backend.models import CefrWord
+    existing = (await db.execute(select(func.count(CefrWord.id)))).scalar() or 0
+    if existing:
+        return 0
+    from backend.cefr_seed import CEFR_WORDS
+    for word, level, meaning in CEFR_WORDS:
+        db.add(CefrWord(word=word.lower().strip(), level=level, meaning=meaning))
+    await db.commit()
+    return len(CEFR_WORDS)
+
+
+async def estimate_user_cefr_level(db: AsyncSession, user_id: int) -> str:
+    from backend.models import CefrWord
+    words = await get_words(db, user_id=user_id)
+    if not words:
+        return "A2"
+    user_set = {w.word.lower().strip() for w in words}
+    rows = await db.execute(select(CefrWord.word, CefrWord.level))
+    level_by_word = {w.lower(): lvl for w, lvl in rows.all()}
+    matched = [_CEFR_NUM[level_by_word[w]] for w in user_set if w in level_by_word]
+    if not matched:
+        return "B1"
+    avg = sum(matched) / len(matched)
+    idx = min(len(_CEFR_ORDER) - 1, max(0, round(avg) - 1))
+    return _CEFR_ORDER[idx]
+
+
+async def suggest_cefr_words(db: AsyncSession, user_id: int, limit: int = 10) -> dict:
+    from backend.models import CefrWord
+    level = await estimate_user_cefr_level(db, user_id)
+    target_num = _CEFR_NUM[level]
+    target_levels = {lvl for lvl, n in _CEFR_NUM.items() if abs(n - target_num) <= 1}
+
+    words = await get_words(db, user_id=user_id)
+    user_set = {w.word.lower().strip() for w in words}
+
+    rows = await db.execute(select(CefrWord))
+    candidates = [
+        c for c in rows.scalars().all()
+        if c.level in target_levels and c.word.lower() not in user_set
+    ]
+    # Prefer the user's exact level, then neighbours
+    candidates.sort(key=lambda c: abs(_CEFR_NUM[c.level] - target_num))
+    top = candidates[:limit * 3]
+    random.shuffle(top)
+    chosen = top[:limit]
+    return {
+        "level": level,
+        "suggestions": [
+            {"word": c.word, "level": c.level, "brief_meaning": c.meaning}
+            for c in chosen
+        ],
+    }
+
+
 async def get_due_review_words(
     db: AsyncSession, user_id: int, limit: int = 10, include_mastered: bool = False
 ) -> list:

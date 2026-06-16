@@ -34,6 +34,12 @@ from backend.chat import chat_completion, sanitize_history, evaluate_sentence
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    try:
+        from backend.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as _db:
+            await crud.seed_cefr_words(_db)
+    except Exception:
+        pass
     hour = int(os.getenv("REMINDER_HOUR", "9"))
     minute = int(os.getenv("REMINDER_MINUTE", "0"))
     setup_scheduler(hour=hour, minute=minute)
@@ -465,6 +471,14 @@ async def import_words(
     db: AsyncSession = Depends(get_db),
 ):
     return await crud.import_words(db, body, user_id=current_user.id)
+
+
+@app.get("/words/suggest")
+async def suggest_words(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await crud.suggest_cefr_words(db, current_user.id)
 
 
 @app.post("/words/import-file", response_model=schemas.FileImportResponse)

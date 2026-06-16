@@ -15,6 +15,7 @@ import DailyWord from './components/DailyWord'
 import { ToastContainer } from './components/Toast'
 import FloatingChatWidget from './components/FloatingChatWidget'
 import ImportWordsModal from './components/ImportWordsModal'
+import DiscoverPanel from './components/DiscoverPanel'
 import { useLang } from './i18n/LangContext'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -274,6 +275,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
         {mode === 'settings' ? (
           <SettingsPage />
+        ) : mode === 'discover' ? (
+          <DiscoverPanel apiBase={API} token={token} onAdded={fetchWords} />
         ) : (
           <>
             {mode !== 'stats' && mode !== 'quiz' && (

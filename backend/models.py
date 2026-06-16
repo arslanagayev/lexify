@@ -101,6 +101,15 @@ class ReviewLog(Base):
     )
 
 
+class CefrWord(Base):
+    __tablename__ = "cefr_words"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    word: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    level: Mapped[str] = mapped_column(String(2), nullable=False)  # A1..C2
+    meaning: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+
+
 class TelegramChat(Base):
     __tablename__ = "telegram_chats"
 
