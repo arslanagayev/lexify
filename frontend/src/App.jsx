@@ -64,6 +64,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [words, setWords]         = useState([])
   const [query, setQuery]         = useState('')
   const [tagFilter, setTagFilter] = useState('')
+  const [masteryFilter, setMasteryFilter] = useState('all')
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
   const [adding, setAdding]       = useState(false)
@@ -247,8 +248,16 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       (w.tags || '').toLowerCase().includes(query.toLowerCase())
     const matchTag = !tagFilter ||
       (w.tags || '').split(',').map(t => t.trim()).includes(tagFilter)
-    return matchText && matchTag
+    const matchMastery = masteryFilter === 'all' ||
+      (w.mastery_status || 'new') === masteryFilter
+    return matchText && matchTag && matchMastery
   })
+
+  const masteryCounts = words.reduce((acc, w) => {
+    const s = w.mastery_status || 'new'
+    acc[s] = (acc[s] || 0) + 1
+    return acc
+  }, {})
 
   return (
     <div className="min-h-screen font-sans">
@@ -286,6 +295,13 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                 {mode === 'grid' && (
                   <>
                     <DailyWord words={words} />
+                    <FilterBar
+                      active={masteryFilter}
+                      onChange={setMasteryFilter}
+                      counts={masteryCounts}
+                      total={words.length}
+                      t={t}
+                    />
                     {allTags.length > 0 && (
                       <TagFilter
                         tags={allTags}
@@ -326,6 +342,32 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <FloatingChatWidget apiBase={API} token={token} />
+    </div>
+  )
+}
+
+function FilterBar({ active, onChange, counts, total, t }) {
+  const items = [
+    { key: 'all',       label: t.filterAll,      count: total,                dot: 'bg-white/40',     on: 'bg-violet-500/20 border-violet-500/40 text-violet-300' },
+    { key: 'learning',  label: t.filterLearning, count: counts.learning || 0, dot: 'bg-amber-400',    on: 'bg-amber-500/20 border-amber-500/40 text-amber-300' },
+    { key: 'mastered',  label: t.filterMastered, count: counts.mastered || 0, dot: 'bg-emerald-400',  on: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' },
+    { key: 'new',       label: t.filterNew,      count: counts.new || 0,      dot: 'bg-sky-400',      on: 'bg-sky-500/20 border-sky-500/40 text-sky-300' },
+  ]
+  return (
+    <div className="flex items-center gap-2 mt-5 flex-wrap">
+      {items.map(it => (
+        <button
+          key={it.key}
+          onClick={() => onChange(it.key)}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all ${
+            active === it.key ? it.on : 'border-white/10 text-white/40 hover:text-white/70'
+          }`}
+        >
+          {it.key !== 'all' && <span className={`w-1.5 h-1.5 rounded-full ${it.dot}`} />}
+          {it.label}
+          <span className="text-white/30">{it.count}</span>
+        </button>
+      ))}
     </div>
   )
 }

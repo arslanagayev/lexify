@@ -106,6 +106,18 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {w.mastery_status === 'mastered' && (
+            <span className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              {t.badgeMastered}
+            </span>
+          )}
+          {w.mastery_status === 'new' && (
+            <span className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-sky-500/40 bg-sky-500/15 text-sky-300 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+              {t.badgeNew}
+            </span>
+          )}
           {w.part_of_speech && (
             <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full border ${posStyle}`}>
               {w.part_of_speech}

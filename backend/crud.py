@@ -237,6 +237,37 @@ async def delete_word(db: AsyncSession, word: Word) -> None:
     await db.commit()
 
 
+def _mastery_from_results(results: list[int]) -> str:
+    """
+    Classify mastery from the most-recent review results (1=known, 0=unknown),
+    where `results` is ordered newest-first and contains up to the last 5.
+      - 4+ known of last 5  -> 'mastered'
+      - 2+ unknown of last 5 -> 'new'
+      - otherwise            -> 'learning'
+    A word with no reviews stays 'new'.
+    """
+    if not results:
+        return "new"
+    window = results[:5]
+    known = sum(1 for r in window if r)
+    unknown = len(window) - known
+    if known >= 4:
+        return "mastered"
+    if unknown >= 2:
+        return "new"
+    return "learning"
+
+
+async def _recompute_mastery(db: AsyncSession, word: Word) -> None:
+    rows = await db.execute(
+        select(ReviewLog.known)
+        .where(ReviewLog.word_id == word.id)
+        .order_by(ReviewLog.reviewed_at.desc())
+        .limit(5)
+    )
+    word.mastery_status = _mastery_from_results([int(k) for k in rows.scalars().all()])
+
+
 async def update_review(db: AsyncSession, word: Word, known: bool) -> Word:
     now = datetime.now(timezone.utc)
     word.review_count += 1
@@ -260,10 +291,23 @@ async def update_review(db: AsyncSession, word: Word, known: bool) -> Word:
         known=int(known),
         reviewed_at=now,
     ))
+    # Flush so the new ReviewLog is included in the last-5 window
+    await db.flush()
+    await _recompute_mastery(db, word)
 
     await db.commit()
     await db.refresh(word)
     return word
+
+
+async def recompute_all_mastery(db: AsyncSession) -> int:
+    """Backfill mastery_status for every word from its review history. Returns count."""
+    result = await db.execute(select(Word))
+    words = list(result.scalars().all())
+    for word in words:
+        await _recompute_mastery(db, word)
+    await db.commit()
+    return len(words)
 
 
 # ── Review Log ────────────────────────────────────────────────
@@ -434,15 +478,19 @@ async def get_user_by_telegram_chat_id(db: AsyncSession, chat_id: str) -> Option
     return result.scalar_one_or_none()
 
 
-async def get_due_review_words(db: AsyncSession, user_id: int, limit: int = 10) -> list:
+async def get_due_review_words(
+    db: AsyncSession, user_id: int, limit: int = 10, include_mastered: bool = False
+) -> list:
     now = datetime.now(timezone.utc)
-    result = await db.execute(
+    stmt = (
         select(Word)
         .where(Word.user_id == user_id)
         .where(or_(Word.next_review <= now, Word.next_review.is_(None)))
-        .order_by(Word.next_review.asc().nullsfirst())
-        .limit(limit)
     )
+    if not include_mastered:
+        stmt = stmt.where(Word.mastery_status != "mastered")
+    stmt = stmt.order_by(Word.next_review.asc().nullsfirst()).limit(limit)
+    result = await db.execute(stmt)
     return list(result.scalars().all())
 
 

@@ -513,12 +513,13 @@ async def telegram_words(chat_id: str = Query(...), db: AsyncSession = Depends(g
 async def telegram_review(
     chat_id: str = Query(...),
     lang: str = Query("en"),
+    include_mastered: bool = Query(False),
     db: AsyncSession = Depends(get_db),
 ):
     user = await crud.get_user_by_telegram_chat_id(db, chat_id)
     if not user:
         raise HTTPException(status_code=404, detail=tg_t("not_linked", lang))
-    words = await crud.get_due_review_words(db, user.id)
+    words = await crud.get_due_review_words(db, user.id, include_mastered=include_mastered)
     if not words:
         return {"empty": True, "message": tg_t("review_empty", lang), "words": []}
     return {

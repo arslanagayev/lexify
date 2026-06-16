@@ -131,6 +131,7 @@ class WordResponse(BaseModel):
     review_count: int = 0
     known_count: int = 0
     unknown_count: int = 0
+    mastery_status: str = "new"
     interval_days: int = 1
     last_reviewed: Optional[datetime] = None
     next_review: Optional[datetime] = None

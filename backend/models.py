@@ -69,6 +69,9 @@ class Word(Base):
     review_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     known_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     unknown_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    mastery_status: Mapped[str] = mapped_column(
+        String(10), default="new", server_default="new", nullable=False
+    )  # 'new' | 'learning' | 'mastered'
     interval_days: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     ease_factor: Mapped[float] = mapped_column(Float, default=2.5, server_default="2.5", nullable=False)
     last_reviewed: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

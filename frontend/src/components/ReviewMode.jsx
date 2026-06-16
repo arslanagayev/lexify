@@ -9,16 +9,20 @@ export default function ReviewMode({ words, onReview }) {
   const [submitting, setSubmitting] = useState(false)
   const [speaking, setSpeaking]     = useState(null)
   const [autoPlay, setAutoPlay]     = useState(false)
+  const [includeMastered, setIncludeMastered] = useState(false)
   const [autoStep, setAutoStep]     = useState('')  // current step label
   const cancelRef = useRef(false)   // signals running sequence to abort
   const timerRef  = useRef(null)
 
-  // Overdue-first sort
-  const queue = [...words].sort((a, b) => {
-    const aD = a.next_review ? new Date(a.next_review) : new Date(0)
-    const bD = b.next_review ? new Date(b.next_review) : new Date(0)
-    return aD - bD
-  })
+  // Exclude mastered words by default; user can opt to include them
+  const queue = [...words]
+    .filter(w => includeMastered || w.mastery_status !== 'mastered')
+    // Overdue-first sort
+    .sort((a, b) => {
+      const aD = a.next_review ? new Date(a.next_review) : new Date(0)
+      const bD = b.next_review ? new Date(b.next_review) : new Date(0)
+      return aD - bD
+    })
   const current = queue[index % Math.max(queue.length, 1)]
 
   const goTo = useCallback(next => {
@@ -156,8 +160,24 @@ export default function ReviewMode({ words, onReview }) {
     })
   }
 
+  const hasMastered = words.some(w => w.mastery_status === 'mastered')
+  const masteredToggle = hasMastered && (
+    <label className="flex items-center justify-center gap-2 mt-4 text-xs text-white/40 cursor-pointer select-none">
+      <input
+        type="checkbox"
+        checked={includeMastered}
+        onChange={e => { setIncludeMastered(e.target.checked); setIndex(0) }}
+        className="accent-emerald-500 w-3.5 h-3.5"
+      />
+      {t.includeMastered}
+    </label>
+  )
+
   if (!current) return (
-    <div className="mt-20 text-center text-white/30">{t.emptyReview}</div>
+    <div className="mt-20 text-center">
+      <p className="text-white/30">{t.emptyReview}</p>
+      {masteredToggle}
+    </div>
   )
 
   const knownTotal  = words.reduce((s, w) => s + (w.known_count || 0), 0)
@@ -172,6 +192,7 @@ export default function ReviewMode({ words, onReview }) {
         <span>{index + 1} / {queue.length}</span>
         <span>{t.accuracy(knownRate)}</span>
       </div>
+      {masteredToggle && <div className="mb-3">{masteredToggle}</div>}
       <div className="h-1 bg-white/8 rounded-full overflow-hidden mb-6">
         <div
           className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 transition-all duration-500"
