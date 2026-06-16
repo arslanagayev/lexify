@@ -27,6 +27,7 @@ from backend.ai_alerts import send_ai_alert
 from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
+from backend.lexify_bot import poll_loop as lexify_bot_poll
 
 
 @asynccontextmanager
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
     setup_scheduler(hour=hour, minute=minute)
     scheduler.start()
     await telegram_manager.start_all_bots()
+    asyncio.create_task(lexify_bot_poll())
     yield
     scheduler.shutdown(wait=False)
 
