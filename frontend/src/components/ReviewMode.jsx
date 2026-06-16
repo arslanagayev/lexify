@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLang } from '../i18n/LangContext'
 import { speak } from '../utils/speech'
 
-export default function ReviewMode({ words, onReview }) {
+export default function ReviewMode({ words, onReview, token, apiBase }) {
   const { t } = useLang()
   const [index, setIndex]           = useState(0)
   const [flipped, setFlipped]       = useState(false)
@@ -10,6 +10,10 @@ export default function ReviewMode({ words, onReview }) {
   const [speaking, setSpeaking]     = useState(null)
   const [autoPlay, setAutoPlay]     = useState(false)
   const [includeMastered, setIncludeMastered] = useState(false)
+  const [practiceMode, setPracticeMode]       = useState(false)
+  const [practiceSentence, setPracticeSentence] = useState('')
+  const [practiceResult, setPracticeResult]   = useState(null)
+  const [practiceLoading, setPracticeLoading] = useState(false)
   const [autoStep, setAutoStep]     = useState('')  // current step label
   const cancelRef = useRef(false)   // signals running sequence to abort
   const timerRef  = useRef(null)
@@ -45,6 +49,33 @@ export default function ReviewMode({ words, onReview }) {
     try { await onReview(current.id, known); goNext() }
     finally { setSubmitting(false) }
   }, [current, onReview, goNext, submitting])
+
+  const submitPractice = useCallback(async () => {
+    if (!current || practiceLoading || !practiceSentence.trim()) return
+    setPracticeLoading(true)
+    setPracticeResult(null)
+    try {
+      const res = await fetch(`${apiBase}/words/${current.id}/practice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ sentence: practiceSentence.trim() }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setPracticeResult(data)
+      if (data.score >= 7) onReview(current.id, true)  // count as known
+    } catch {
+      setPracticeResult({ error: true })
+    } finally {
+      setPracticeLoading(false)
+    }
+  }, [current, practiceLoading, practiceSentence, apiBase, token, onReview])
+
+  const nextPractice = useCallback(() => {
+    setPracticeResult(null)
+    setPracticeSentence('')
+    goNext()
+  }, [goNext])
 
   // ── Auto-play sequence ──────────────────────────────────────
   const stopAutoPlay = useCallback(() => {
@@ -321,7 +352,71 @@ export default function ReviewMode({ words, onReview }) {
         </div>
       </div>
 
+      {/* Practice Mode toggle */}
+      <div className="flex justify-center mt-4">
+        <button
+          onClick={() => { setPracticeMode(v => !v); setPracticeResult(null); setPracticeSentence('') }}
+          className={`text-xs px-4 py-2 rounded-full border transition-all flex items-center gap-1.5 ${
+            practiceMode
+              ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+              : 'glass border-white/10 text-white/40 hover:text-white/70'
+          }`}
+        >
+          ✍️ {t.practiceMode}
+        </button>
+      </div>
+
+      {/* Practice panel */}
+      {practiceMode && (
+        <div className="mt-5">
+          <textarea
+            value={practiceSentence}
+            onChange={e => setPracticeSentence(e.target.value)}
+            rows={2}
+            maxLength={500}
+            placeholder={t.practicePrompt(current.word)}
+            className="w-full resize-none bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white/90 placeholder-white/30 focus:outline-none focus:border-violet-400/50"
+          />
+          <button
+            onClick={submitPractice}
+            disabled={practiceLoading || !practiceSentence.trim()}
+            className="mt-2 w-full py-3 rounded-xl text-sm font-medium bg-gradient-to-r from-violet-500 to-sky-500 text-white disabled:opacity-30 transition-opacity"
+          >
+            {practiceLoading ? t.practiceChecking : t.practiceSubmit}
+          </button>
+
+          {practiceResult?.error && (
+            <p className="text-center text-red-400/70 text-xs mt-3">{t.practiceError}</p>
+          )}
+          {practiceResult && !practiceResult.error && (
+            <div className={`mt-3 rounded-xl p-4 border ${
+              practiceResult.score >= 7 ? 'bg-emerald-500/10 border-emerald-500/30'
+              : practiceResult.score >= 4 ? 'bg-amber-500/10 border-amber-500/30'
+              : 'bg-red-500/10 border-red-500/30'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-sm font-semibold ${
+                  practiceResult.score >= 7 ? 'text-emerald-300'
+                  : practiceResult.score >= 4 ? 'text-amber-300' : 'text-red-300'
+                }`}>
+                  {practiceResult.score >= 7 ? '✓ ' : ''}{t.practiceScore(practiceResult.score)}
+                </span>
+              </div>
+              <p className="text-white/75 text-sm leading-relaxed">{practiceResult.feedback}</p>
+              {practiceResult.better_version && (
+                <p className="text-white/50 text-xs mt-2 italic">💡 {practiceResult.better_version}</p>
+              )}
+              <button onClick={nextPractice}
+                className="mt-3 w-full py-2.5 rounded-xl text-sm glass border border-white/10 text-white/60 hover:text-white transition-all">
+                {t.next} →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Controls */}
+      {!practiceMode && (
       <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
         {/* Mobile: Know/Don't-know full-width row (shown first on mobile, hidden on desktop) */}
@@ -407,10 +502,13 @@ export default function ReviewMode({ words, onReview }) {
         </button>
 
       </div>
+      )}
 
+      {!practiceMode && (
       <p className="text-center text-white/15 text-xs mt-4">
         {autoPlay ? '← → skip · 1 know · 2 don\'t know · A pause' : t.keyboardHint}
       </p>
+      )}
     </div>
   )
 }

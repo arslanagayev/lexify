@@ -28,7 +28,7 @@ from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
 from backend.lexify_bot import poll_loop as lexify_bot_poll
-from backend.chat import chat_completion, sanitize_history
+from backend.chat import chat_completion, sanitize_history, evaluate_sentence
 
 
 @asynccontextmanager
@@ -386,6 +386,34 @@ async def review_word(
     updated = await crud.update_review(db, word, body.known)
     await crud.log_activity(db)
     return updated
+
+
+@app.post("/words/{word_id}/practice")
+@limiter.limit("15/minute")
+async def practice_word(
+    request: Request,
+    word_id: int,
+    body: schemas.PracticeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    word = await crud.get_word(db, word_id, user_id=current_user.id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+    sentence = body.sentence.strip()
+    if not sentence:
+        raise HTTPException(status_code=422, detail="Sentence cannot be empty")
+    if len(sentence) > 500:
+        raise HTTPException(status_code=422, detail="Sentence too long")
+    try:
+        result = await evaluate_sentence(word.word, sentence)
+    except Exception as e:
+        asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
+        raise HTTPException(
+            status_code=503,
+            detail={"error_code": "ai_service_limited", "message": str(e)},
+        )
+    return result
 
 
 # ── Stats ─────────────────────────────────────────────────────

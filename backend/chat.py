@@ -69,3 +69,47 @@ async def chat_completion(history: list[dict]) -> str:
         temperature=0.4,
     )
     return resp.choices[0].message.content
+
+
+_PRACTICE_PROMPT = (
+    "You evaluate an English sentence written by a learner who is practicing a target word.\n"
+    "Target word: {word}\n"
+    "Learner's sentence: {sentence}\n\n"
+    "Check: (1) is the target word used correctly and meaningfully, (2) is the grammar correct.\n"
+    "Return ONLY a JSON object, no markdown, with exactly these keys:\n"
+    '{{"is_correct_usage": bool, "grammar_ok": bool, "feedback": "one short helpful sentence", '
+    '"better_version": "an improved sentence or null if already good", "score": integer 1-10}}'
+)
+
+
+async def evaluate_sentence(word: str, sentence: str) -> dict:
+    import json as _json
+    client = _get_client()
+    resp = await client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": "You are a strict but encouraging English teacher. Output JSON only."},
+            {"role": "user", "content": _PRACTICE_PROMPT.format(word=word, sentence=sentence)},
+        ],
+        max_tokens=300,
+        temperature=0.2,
+        response_format={"type": "json_object"},
+    )
+    raw = resp.choices[0].message.content
+    data = _json.loads(raw)
+    # Normalize / clamp
+    score = data.get("score", 0)
+    try:
+        score = max(1, min(10, int(score)))
+    except (TypeError, ValueError):
+        score = 1
+    better = data.get("better_version")
+    if isinstance(better, str) and better.strip().lower() in ("null", "none", ""):
+        better = None
+    return {
+        "is_correct_usage": bool(data.get("is_correct_usage", False)),
+        "grammar_ok": bool(data.get("grammar_ok", False)),
+        "feedback": str(data.get("feedback", ""))[:500],
+        "better_version": better,
+        "score": score,
+    }

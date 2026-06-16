@@ -320,7 +320,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                   </>
                 )}
                 {mode === 'review' && (
-                  <ReviewMode words={words} onReview={handleReview} />
+                  <ReviewMode words={words} onReview={handleReview} token={token} apiBase={API} />
                 )}
                 {mode === 'quiz' && (
                   <QuizMode words={words} token={token} />
