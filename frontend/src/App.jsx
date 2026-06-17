@@ -18,6 +18,7 @@ import FloatingChatWidget from './components/FloatingChatWidget'
 import ImportWordsModal from './components/ImportWordsModal'
 import DiscoverPanel from './components/DiscoverPanel'
 import AdminPanel from './components/AdminPanel'
+import OnboardingTour from './components/OnboardingTour'
 import WordMapModal from './components/WordMapModal'
 import AchievementsModal from './components/AchievementsModal'
 import Confetti from './components/Confetti'
@@ -84,6 +85,15 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [showAchievements, setShowAchievements] = useState(false)
   const [confetti, setConfetti] = useState(false)
   const [shareListUrl, setShareListUrl] = useState(null)
+  const [showTour, setShowTour] = useState(false)
+  const tourSeenRef = useRef(false)
+
+  useEffect(() => {
+    if (!loading && words.length === 0 && !tourSeenRef.current) {
+      tourSeenRef.current = true
+      setShowTour(true)
+    }
+  }, [loading, words.length])
 
   const createShareLink = useCallback(async () => {
     try {
@@ -491,6 +501,12 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       )}
 
       {confetti && <Confetti />}
+
+      {showTour && (
+        <ErrorBoundary silent>
+          <OnboardingTour onClose={() => setShowTour(false)} />
+        </ErrorBoundary>
+      )}
 
       {shareListUrl && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShareListUrl(null)}>
