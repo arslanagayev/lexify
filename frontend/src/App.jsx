@@ -72,6 +72,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [query, setQuery]         = useState('')
   const [tagFilter, setTagFilter] = useState('')
   const [masteryFilter, setMasteryFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('newest')
   const [showImport, setShowImport] = useState(false)
   const [mapWord, setMapWord] = useState(null)
   const [showAchievements, setShowAchievements] = useState(false)
@@ -303,6 +304,17 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
     return matchText && matchTag && matchMastery
   })
 
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sortBy) {
+      case 'oldest':   return new Date(a.created_at) - new Date(b.created_at)
+      case 'az':       return (a.word || '').localeCompare(b.word || '')
+      case 'za':       return (b.word || '').localeCompare(a.word || '')
+      case 'hardest':  return (b.difficulty_score || 0) - (a.difficulty_score || 0)
+      case 'reviewed': return (b.review_count || 0) - (a.review_count || 0)
+      default:         return new Date(b.created_at) - new Date(a.created_at) // newest
+    }
+  })
+
   const ownedWords = new Set(words.map(w => (w.word || '').toLowerCase()))
 
   const masteryCounts = words.reduce((acc, w) => {
@@ -360,12 +372,26 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                         total={words.length}
                         t={t}
                       />
-                      <button
-                        onClick={() => setShowImport(true)}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-white/50 hover:text-white transition-all mt-5"
-                      >
-                        📥 {t.importWordsBtn}
-                      </button>
+                      <div className="flex items-center gap-2 mt-5">
+                        <select
+                          value={sortBy}
+                          onChange={e => setSortBy(e.target.value)}
+                          className="text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-white/60 hover:text-white transition-all focus:outline-none cursor-pointer"
+                        >
+                          <option value="newest">{t.sortNewest}</option>
+                          <option value="oldest">{t.sortOldest}</option>
+                          <option value="az">{t.sortAZ}</option>
+                          <option value="za">{t.sortZA}</option>
+                          <option value="hardest">{t.sortHardest}</option>
+                          <option value="reviewed">{t.sortReviewed}</option>
+                        </select>
+                        <button
+                          onClick={() => setShowImport(true)}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-white/50 hover:text-white transition-all"
+                        >
+                          📥 {t.importWordsBtn}
+                        </button>
+                      </div>
                     </div>
                     {allTags.length > 0 && (
                       <TagFilter
@@ -376,7 +402,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                       />
                     )}
                     <WordGrid
-                  words={filtered}
+                  words={sorted}
                   onUpdate={handleUpdate}
                   onDelete={handleDelete}
                   onEditOpen={onEditOpen}

@@ -340,10 +340,12 @@ async def stats_word(
 async def list_words(
     q: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    sort: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await crud.get_words(db, q=q, user_id=current_user.id, status=status)
+    return await crud.get_words(db, q=q, user_id=current_user.id, status=status, search=search, sort=sort)
 
 
 _WORD_RE = re.compile(r"^[\w\s\-''À-ÿ]+$", re.UNICODE)

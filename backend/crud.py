@@ -184,14 +184,28 @@ async def verify_code(db: AsyncSession, email: str, code: str, purpose: str) -> 
 
 # ── Words ─────────────────────────────────────────────────────
 
+_SORT_ORDERS = {
+    "newest": lambda: Word.created_at.desc(),
+    "oldest": lambda: Word.created_at.asc(),
+    "az": lambda: Word.word.asc(),
+    "za": lambda: Word.word.desc(),
+    "hardest": lambda: Word.difficulty_score.desc(),
+    "reviewed": lambda: Word.review_count.desc(),
+}
+
+
 async def get_words(db: AsyncSession, q: Optional[str] = None,
                     user_id: Optional[int] = None,
-                    status: Optional[str] = None) -> list:
-    stmt = select(Word).order_by(Word.created_at.desc())
+                    status: Optional[str] = None,
+                    search: Optional[str] = None,
+                    sort: Optional[str] = None) -> list:
+    order = _SORT_ORDERS.get(sort or "newest", _SORT_ORDERS["newest"])()
+    stmt = select(Word).order_by(order)
     if user_id is not None:
         stmt = stmt.where(Word.user_id == user_id)
-    if q:
-        stmt = stmt.where(Word.word.ilike(f"%{q}%"))
+    term = q or search
+    if term:
+        stmt = stmt.where(Word.word.ilike(f"%{term}%"))
     if status and status in ("new", "learning", "mastered"):
         stmt = stmt.where(Word.mastery_status == status)
     result = await db.execute(stmt)
