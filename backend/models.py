@@ -76,6 +76,9 @@ class Word(Base):
     difficulty_score: Mapped[float] = mapped_column(
         Float, default=0.0, server_default="0.0", nullable=False
     )
+    pronunciation_score: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
     interval_days: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     ease_factor: Mapped[float] = mapped_column(Float, default=2.5, server_default="2.5", nullable=False)
     last_reviewed: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

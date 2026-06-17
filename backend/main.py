@@ -394,6 +394,23 @@ async def review_word(
     return updated
 
 
+@app.post("/words/{word_id}/pronunciation-attempt")
+async def pronunciation_attempt(
+    word_id: int,
+    body: schemas.PronunciationAttempt,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    word = await crud.get_word(db, word_id, user_id=current_user.id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+    if body.success:
+        word.pronunciation_score = (word.pronunciation_score or 0) + 1
+        await db.commit()
+        await db.refresh(word)
+    return {"pronunciation_score": word.pronunciation_score}
+
+
 @app.post("/words/{word_id}/practice")
 @limiter.limit("15/minute")
 async def practice_word(

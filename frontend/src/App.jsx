@@ -332,6 +332,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                   onEditOpen={onEditOpen}
                   onEditClose={onEditClose}
                   onOpenMap={setMapWord}
+                  token={token}
+                  apiBase={API}
                 />
                   </>
                 )}

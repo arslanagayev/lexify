@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLang } from '../i18n/LangContext'
 import { speak } from '../utils/speech'
+import PronounceCheck from './PronounceCheck'
+import ErrorBoundary from './ErrorBoundary'
 
 export default function ReviewMode({ words, onReview, token, apiBase }) {
   const { t } = useLang()
@@ -351,6 +353,15 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
           </div>
         </div>
       </div>
+
+      {/* Pronunciation check */}
+      {!practiceMode && (
+        <div className="flex justify-center mt-4">
+          <ErrorBoundary silent>
+            <PronounceCheck word={current.word} wordId={current.id} token={token} apiBase={apiBase} />
+          </ErrorBoundary>
+        </div>
+      )}
 
       {/* Practice Mode toggle */}
       <div className="flex justify-center mt-4">

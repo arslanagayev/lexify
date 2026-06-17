@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import { useLang } from '../i18n/LangContext'
 import { speak } from '../utils/speech'
+import PronounceCheck from './PronounceCheck'
+import ErrorBoundary from './ErrorBoundary'
 
 const POS_STYLE = {
   noun:        'bg-sky-500/15 text-sky-300 border-sky-500/25',
@@ -13,7 +15,7 @@ const POS_STYLE = {
 }
 const POS_DEFAULT = 'bg-white/8 text-white/40 border-white/15'
 
-export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, style }) {
+export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, token, apiBase, style }) {
   const { t } = useLang()
   const [editing, setEditing]   = useState(false)
   const [saving, setSaving]     = useState(false)
@@ -129,6 +131,9 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <ErrorBoundary silent>
+            <PronounceCheck word={w.word} wordId={w.id} token={token} apiBase={apiBase} compact />
+          </ErrorBoundary>
           {(w.synonyms || w.antonyms || w.collocations) && onOpenMap && (
             <button onClick={() => onOpenMap(w)}
               className="p-1.5 rounded-lg text-white/20 hover:text-cyan-300 hover:bg-cyan-500/10 transition-all opacity-0 group-hover:opacity-100"

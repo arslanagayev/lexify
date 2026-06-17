@@ -134,6 +134,7 @@ class WordResponse(BaseModel):
     mastery_status: str = "new"
     mastered_at: Optional[datetime] = None
     difficulty_score: float = 0.0
+    pronunciation_score: int = 0
     interval_days: int = 1
     last_reviewed: Optional[datetime] = None
     next_review: Optional[datetime] = None
@@ -266,3 +267,7 @@ class PracticeRequest(BaseModel):
 
 class FillBlankAnswer(BaseModel):
     selected_word: str
+
+
+class PronunciationAttempt(BaseModel):
+    success: bool
