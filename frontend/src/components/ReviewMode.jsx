@@ -18,6 +18,7 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
   const [practiceLoading, setPracticeLoading] = useState(false)
   const [exampleCache, setExampleCache] = useState({})  // wordId -> [sentences]
   const [exampleIdx, setExampleIdx]     = useState({})  // wordId -> index
+  const [ttsRate, setTtsRate]           = useState(0.9)
   const [autoStep, setAutoStep]     = useState('')  // current step label
   const cancelRef = useRef(false)   // signals running sequence to abort
   const timerRef  = useRef(null)
@@ -200,13 +201,15 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
   useEffect(() => {
     const onKey = e => {
       if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return
-      if (e.key === 'ArrowRight' || e.key === 'l') { stopAutoPlay(); goNext() }
-      else if (e.key === 'ArrowLeft' || e.key === 'h') { stopAutoPlay(); goPrev() }
+      if (e.key === 'l') { stopAutoPlay(); goNext() }
+      else if (e.key === 'h') { stopAutoPlay(); goPrev() }
       else if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault()
         if (autoPlay) stopAutoPlay()
         else setFlipped(f => !f)
       }
+      else if (e.key === 'ArrowLeft' || e.key === 'j' || e.key === 'J') grade(1)   // Again
+      else if (e.key === 'ArrowRight' || e.key === 'k' || e.key === 'K') grade(4)  // Good
       else if (e.key === '1') grade(1)
       else if (e.key === '2') grade(3)
       else if (e.key === '3') grade(4)
@@ -223,7 +226,7 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
       onStart: () => setSpeaking(key),
       onEnd:   () => setSpeaking(null),
       onError: () => setSpeaking(null),
-    })
+    }, ttsRate)
   }
 
   const hasMastered = words.some(w => w.mastery_status === 'mastered')
@@ -397,12 +400,25 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
         </div>
       </div>
 
-      {/* Pronunciation check */}
+      {/* Pronunciation check + TTS speed */}
       {!practiceMode && (
-        <div className="flex justify-center mt-4">
+        <div className="flex flex-col items-center gap-2 mt-4">
           <ErrorBoundary silent>
             <PronounceCheck word={current.word} wordId={current.id} token={token} apiBase={apiBase} />
           </ErrorBoundary>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-white/25">{t.ttsSpeed}</span>
+            {[0.5, 1, 1.5].map(r => (
+              <button key={r} onClick={() => setTtsRate(r === 1 ? 0.9 : r)}
+                className={`text-[11px] px-2 py-0.5 rounded-full border transition-all ${
+                  (r === 1 ? ttsRate === 0.9 : ttsRate === r)
+                    ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+                    : 'border-white/10 text-white/35 hover:text-white/60'
+                }`}>
+                {r}x
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

@@ -29,14 +29,14 @@ function findVoice(lang) {
  * @param {string} lang  e.g. 'en-US' | 'zh-CN'
  * @param {{ onStart?: () => void, onEnd?: () => void, onError?: () => void }} callbacks
  */
-export function speak(text, lang, callbacks = {}) {
+export function speak(text, lang, callbacks = {}, rate = 0.88) {
   if (!window.speechSynthesis || !text?.trim()) return
 
   window.speechSynthesis.cancel()
 
   const utt = new SpeechSynthesisUtterance(text)
   utt.lang = lang
-  utt.rate = 0.88
+  utt.rate = rate
 
   if (callbacks.onStart) utt.onstart = callbacks.onStart
   if (callbacks.onEnd)   utt.onend   = callbacks.onEnd
