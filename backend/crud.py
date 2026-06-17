@@ -492,6 +492,41 @@ async def get_word_stats(db: AsyncSession, user_id: int, word_id: int) -> Option
     }
 
 
+async def weekly_summary(db: AsyncSession, user_id: int) -> dict:
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    result = await db.execute(select(Word).where(Word.user_id == user_id))
+    words = list(result.scalars().all())
+
+    def _aware(dt):
+        if dt and dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+
+    added = sum(1 for w in words if _aware(w.created_at) and _aware(w.created_at) >= week_ago)
+    mastered = sum(1 for w in words if _aware(w.mastered_at) and _aware(w.mastered_at) >= week_ago)
+    reviewed = [w for w in words if w.review_count > 0]
+    hardest = max(reviewed, key=lambda w: w.difficulty_score, default=None)
+    return {
+        "added": added,
+        "mastered": mastered,
+        "streak": await _review_streak(db, user_id),
+        "total_words": len(words),
+        "hardest_word": hardest.word if hardest else None,
+    }
+
+
+async def get_all_verified_users(db: AsyncSession) -> list[User]:
+    result = await db.execute(select(User).where(User.is_verified == 1))
+    return list(result.scalars().all())
+
+
+async def set_weekly_email(db: AsyncSession, user: User, enabled: bool) -> User:
+    user.weekly_email = 1 if enabled else 0
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 # ── Achievements ──────────────────────────────────────────────
 
 async def unlock_achievement(db: AsyncSession, user_id: int, achievement_id: str) -> bool:

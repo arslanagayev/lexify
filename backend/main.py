@@ -20,6 +20,7 @@ from backend.models import User
 from backend.auth import (
     hash_password, verify_password, create_access_token, decode_access_token,
     generate_code, code_expiry, send_verification_email, send_reset_email,
+    send_weekly_summary_email,
 )
 import asyncio
 from backend.agents.word_agent import enrich_word, AIServiceLimitedError
@@ -251,6 +252,16 @@ async def change_password(
     if len(body.new_password) < 6:
         raise HTTPException(status_code=422, detail="New password must be at least 6 characters")
     await crud.update_user_password(db, current_user, hash_password(body.new_password))
+
+
+@app.put("/auth/weekly-email")
+async def set_weekly_email(
+    body: schemas.WeeklyEmailRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await crud.set_weekly_email(db, current_user, body.enabled)
+    return {"weekly_email": body.enabled}
 
 
 @app.delete("/auth/account", status_code=204)
@@ -787,6 +798,34 @@ async def telegram_set_daily(
 ):
     await crud.set_daily_notification(db, body.chat_id, body.enabled)
     return {"chat_id": body.chat_id, "enabled": body.enabled}
+
+
+@app.post("/email/weekly-summary")
+async def email_weekly_summary(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    internal = os.getenv("INTERNAL_TOKEN", "")
+    auth = request.headers.get("authorization", "")
+    if not internal or auth != f"Bearer {internal}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    users = await crud.get_all_verified_users(db)
+    sent = 0
+    for user in users:
+        if not user.weekly_email:
+            continue
+        stats = await crud.weekly_summary(db, user.id)
+        if stats["total_words"] == 0:
+            continue
+        try:
+            await asyncio.to_thread(
+                send_weekly_summary_email, user.email, user.first_name or "", stats
+            )
+            sent += 1
+        except Exception:
+            pass
+    return {"sent": sent}
 
 
 @app.post("/telegram/send-daily")

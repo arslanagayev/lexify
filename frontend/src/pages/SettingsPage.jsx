@@ -94,6 +94,21 @@ export default function SettingsPage() {
   }
 
   // ── Password state ────────────────────────────────────────────
+  const [weeklyEmail, setWeeklyEmail] = useState(user?.weekly_email !== false)
+  const toggleWeeklyEmail = async () => {
+    const next = !weeklyEmail
+    setWeeklyEmail(next)
+    try {
+      await fetch(`${API}/auth/weekly-email`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ enabled: next }),
+      })
+    } catch {
+      setWeeklyEmail(!next)  // revert on failure
+    }
+  }
+
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
   const [pwMsg, setPwMsg]       = useState(null)
@@ -227,6 +242,19 @@ export default function SettingsPage() {
             copied={copied} error={tgError} onGenerate={handleGenerate} onCopy={handleCopy}
           />
         )}
+      </Section>
+
+      <Section icon="📧" title={t.weeklyEmailTitle}>
+        <label className="flex items-center justify-between gap-3 cursor-pointer">
+          <span className="text-sm text-white/55">{t.weeklyEmailDesc}</span>
+          <button
+            onClick={toggleWeeklyEmail}
+            type="button"
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${weeklyEmail ? 'bg-violet-500' : 'bg-white/15'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${weeklyEmail ? 'translate-x-5' : ''}`} />
+          </button>
+        </label>
       </Section>
 
       {/* ── Danger Zone ───────────────────────────────────────── */}

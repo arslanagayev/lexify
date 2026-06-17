@@ -74,6 +74,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     telegram_bot_connected: bool = False
     telegram_linked: bool = False
+    weekly_email: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -275,3 +276,7 @@ class PronunciationAttempt(BaseModel):
 
 class AchievementUnlock(BaseModel):
     achievement_id: str
+
+
+class WeeklyEmailRequest(BaseModel):
+    enabled: bool

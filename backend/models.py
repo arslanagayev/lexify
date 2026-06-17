@@ -23,6 +23,7 @@ class User(Base):
     telegram_bot_token: Mapped[Optional[str]] = mapped_column(Text)
     telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(50))
     last_code_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    weekly_email: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
 
     @property
     def telegram_bot_connected(self) -> bool:

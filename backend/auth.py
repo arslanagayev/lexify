@@ -219,3 +219,46 @@ def send_reset_email(to_email: str, code: str, first_name: str = "") -> None:
 
     html_body = _base_template("Reset your Lexify password", body)
     _send_mail(to_email, f"Reset your Lexify password — {code}", html_body)
+
+
+def send_weekly_summary_email(to_email: str, first_name: str, stats: dict) -> None:
+    safe_name = html.escape(first_name) if first_name else ""
+    hi = f"Hi {safe_name}," if safe_name else "Hi,"
+    hardest = html.escape(stats.get("hardest_word") or "—")
+
+    def _stat_row(emoji, label, value):
+        return f"""
+<tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;">
+  <span style="font-size:18px;">{emoji}</span>
+  <span style="font-size:15px;color:#6b7280;margin-left:8px;">{label}</span>
+  <span style="float:right;font-size:18px;font-weight:700;color:#111827;">{value}</span>
+</td></tr>"""
+
+    body = f"""
+<h1 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#111827;letter-spacing:-0.3px;">
+  📚 Your Lexify Weekly Summary
+</h1>
+<p style="margin:0 0 28px;font-size:16px;color:#6b7280;line-height:1.65;">
+  {hi} here's how your week of learning went.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;">
+  {_stat_row("✅", "New words added", stats.get("added", 0))}
+  {_stat_row("🎯", "Words mastered", stats.get("mastered", 0))}
+  {_stat_row("🔥", "Current streak", f'{stats.get("streak", 0)} days')}
+  {_stat_row("📖", "Total words", stats.get("total_words", 0))}
+  {_stat_row("💪", "Hardest word", hardest)}
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr><td align="center" style="padding:8px 0 4px;">
+    <a href="https://lexifyvocab.tech" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#0891b2);
+       color:#fff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;">
+      Continue Learning →
+    </a>
+  </td></tr>
+</table>
+<p style="margin:28px 0 0;font-size:12px;color:#c4c9d4;text-align:center;">
+  You can turn off these summaries in Settings.
+</p>"""
+
+    html_body = _base_template("Your Lexify Weekly Summary", body)
+    _send_mail(to_email, "📚 Your Lexify Weekly Summary", html_body)
