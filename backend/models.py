@@ -102,6 +102,7 @@ class Word(Base):
     word_family: Mapped[Optional[str]] = mapped_column(Text)  # cached JSON {root, family[]}
     interval_days: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     ease_factor: Mapped[float] = mapped_column(Float, default=2.5, server_default="2.5", nullable=False)
+    repetitions: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     last_reviewed: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     next_review: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 

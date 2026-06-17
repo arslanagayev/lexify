@@ -440,7 +440,7 @@ async def review_word(
     word = await crud.get_word(db, word_id, user_id=current_user.id)
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
-    updated = await crud.update_review(db, word, body.known)
+    updated = await crud.update_review(db, word, body.known, quality=body.quality)
     await crud.log_activity(db)
     return updated
 

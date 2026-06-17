@@ -145,6 +145,7 @@ class WordResponse(BaseModel):
 
 class ReviewRequest(BaseModel):
     known: bool
+    quality: Optional[int] = None  # SM-2 quality 0-5 (Again/Hard/Good/Easy)
 
 
 class DailyHistory(BaseModel):

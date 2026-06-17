@@ -272,11 +272,11 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
     setWords(prev => prev.filter(w => w.id !== id))
   }, [token, handleUnauth])
 
-  const handleReview = useCallback(async (id, known) => {
+  const handleReview = useCallback(async (id, known, quality = null) => {
     const res = await fetch(`${API}/words/${id}/review`, {
       method: 'POST',
       headers: authHeaders,
-      body: JSON.stringify({ known }),
+      body: JSON.stringify({ known, quality }),
     })
     if (res.status === 401) { handleUnauth(); return }
     if (!res.ok) throw new Error(`HTTP ${res.status}`)

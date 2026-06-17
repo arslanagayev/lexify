@@ -351,12 +351,33 @@ async def _recompute_mastery(db: AsyncSession, word: Word) -> None:
     word.difficulty_score = round(word.review_count / (word.known_count + 1), 3)
 
 
-async def update_review(db: AsyncSession, word: Word, known: bool) -> Word:
+async def update_review(db: AsyncSession, word: Word, known: bool,
+                        quality: Optional[int] = None) -> Word:
     now = datetime.now(timezone.utc)
     word.review_count += 1
     word.last_reviewed = now
 
-    if known:
+    if quality is not None:
+        # SM-2 algorithm (quality 0-5; >=3 counts as a successful recall)
+        q = max(0, min(5, quality))
+        known = q >= 3
+        if known:
+            word.known_count += 1
+        else:
+            word.unknown_count += 1
+        if q < 3:
+            word.repetitions = 0
+            word.interval_days = 1
+        else:
+            word.repetitions = (word.repetitions or 0) + 1
+            if word.repetitions == 1:
+                word.interval_days = 1
+            elif word.repetitions == 2:
+                word.interval_days = 6
+            else:
+                word.interval_days = min(365, max(1, round(word.interval_days * word.ease_factor)))
+        word.ease_factor = max(1.3, word.ease_factor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)))
+    elif known:
         word.known_count += 1
         word.ease_factor = min(3.0, word.ease_factor + 0.1)
         word.interval_days = min(365, max(1, round(word.interval_days * word.ease_factor)))

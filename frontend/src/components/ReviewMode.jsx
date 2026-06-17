@@ -52,6 +52,14 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
     finally { setSubmitting(false) }
   }, [current, onReview, goNext, submitting])
 
+  // SM-2 grading: quality 0-5 (Again=1, Hard=3, Good=4, Easy=5)
+  const grade = useCallback(async (quality) => {
+    if (!current || submitting) return
+    setSubmitting(true)
+    try { await onReview(current.id, quality >= 3, quality); goNext() }
+    finally { setSubmitting(false) }
+  }, [current, onReview, goNext, submitting])
+
   const submitPractice = useCallback(async () => {
     if (!current || practiceLoading || !practiceSentence.trim()) return
     setPracticeLoading(true)
@@ -176,13 +184,15 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
         if (autoPlay) stopAutoPlay()
         else setFlipped(f => !f)
       }
-      else if (e.key === '1') handleReview(true)
-      else if (e.key === '2') handleReview(false)
+      else if (e.key === '1') grade(1)
+      else if (e.key === '2') grade(3)
+      else if (e.key === '3') grade(4)
+      else if (e.key === '4') grade(5)
       else if (e.key === 'a' || e.key === 'A') toggleAutoPlay()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goNext, goPrev, handleReview, autoPlay, stopAutoPlay, toggleAutoPlay])
+  }, [goNext, goPrev, grade, autoPlay, stopAutoPlay, toggleAutoPlay])
 
   // ── Manual speak helper ─────────────────────────────────────
   const handleSpeak = (text, lang, key) => {
@@ -428,34 +438,38 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
 
       {/* Controls */}
       {!practiceMode && (
-      <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="mt-6 space-y-3">
 
-        {/* Mobile: Know/Don't-know full-width row (shown first on mobile, hidden on desktop) */}
-        <div className="flex gap-2 sm:hidden">
-          <button onClick={() => handleReview(false)} disabled={submitting}
-            className="flex-1 py-3 rounded-xl text-sm font-medium border transition-all
+        {/* SM-2 grade buttons */}
+        <div className="grid grid-cols-4 gap-2">
+          <button onClick={() => grade(1)} disabled={submitting}
+            className="py-3 rounded-xl text-sm font-medium border transition-all
                        bg-red-500/10 border-red-500/25 text-red-300 hover:bg-red-500/20 disabled:opacity-40
-                       flex items-center justify-center gap-1.5">
-            {submitting ? <SpinIcon className="w-3.5 h-3.5 animate-spin" /> : <XIcon className="w-3.5 h-3.5" />}
-            {t.dontKnow}
+                       flex flex-col items-center">
+            {t.gradeAgain}<span className="text-[10px] text-white/25 mt-0.5">1</span>
           </button>
-          <button onClick={() => handleReview(true)} disabled={submitting}
-            className="flex-1 py-3 rounded-xl text-sm font-medium border transition-all
+          <button onClick={() => grade(3)} disabled={submitting}
+            className="py-3 rounded-xl text-sm font-medium border transition-all
+                       bg-amber-500/10 border-amber-500/25 text-amber-300 hover:bg-amber-500/20 disabled:opacity-40
+                       flex flex-col items-center">
+            {t.gradeHard}<span className="text-[10px] text-white/25 mt-0.5">2</span>
+          </button>
+          <button onClick={() => grade(4)} disabled={submitting}
+            className="py-3 rounded-xl text-sm font-medium border transition-all
                        bg-emerald-500/10 border-emerald-500/25 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40
-                       flex items-center justify-center gap-1.5">
-            {submitting ? <SpinIcon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
-            {t.iKnow}
+                       flex flex-col items-center">
+            {t.gradeGood}<span className="text-[10px] text-white/25 mt-0.5">3</span>
+          </button>
+          <button onClick={() => grade(5)} disabled={submitting}
+            className="py-3 rounded-xl text-sm font-medium border transition-all
+                       bg-sky-500/10 border-sky-500/25 text-sky-300 hover:bg-sky-500/20 disabled:opacity-40
+                       flex flex-col items-center">
+            {t.gradeEasy}<span className="text-[10px] text-white/25 mt-0.5">4</span>
           </button>
         </div>
 
-        {/* Prev — hidden on mobile (shown in nav row below) */}
-        <button onClick={() => { stopAutoPlay(); goPrev() }}
-          className="hidden sm:flex glass rounded-xl px-5 py-3 text-sm text-white/50 hover:text-white hover:bg-white/8 transition-all items-center gap-2">
-          <ArrowLeftIcon className="w-4 h-4" />{t.prev}
-        </button>
-
-        {/* Mobile nav row: Prev + Auto + Next */}
-        <div className="flex items-center justify-between gap-2 sm:hidden">
+        {/* Nav row: Prev + Auto + Next */}
+        <div className="flex items-center justify-between gap-2">
           <button onClick={() => { stopAutoPlay(); goPrev() }}
             className="glass rounded-xl px-4 py-2.5 text-xs text-white/50 hover:text-white hover:bg-white/8 transition-all flex items-center gap-1.5">
             <ArrowLeftIcon className="w-3.5 h-3.5" />{t.prev}
@@ -476,48 +490,12 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
             {t.next}<ArrowRightIcon className="w-3.5 h-3.5" />
           </button>
         </div>
-
-        {/* Desktop center: Auto + Don't know + I know */}
-        <div className="hidden sm:flex gap-2 items-center">
-          <button
-            onClick={toggleAutoPlay}
-            title="Auto-play (A)"
-            className={`px-3 py-3 rounded-xl text-sm font-medium border transition-all flex items-center gap-1.5
-              ${autoPlay
-                ? 'bg-violet-500/25 border-violet-400/40 text-violet-300'
-                : 'glass border-white/10 text-white/30 hover:text-white/60'}`}
-          >
-            {autoPlay ? <PauseIcon className="w-4 h-4" /> : <PlayIcon className="w-4 h-4" />}
-            <span className="text-xs">{t.autoPlay}</span>
-          </button>
-          <button onClick={() => handleReview(false)} disabled={submitting}
-            className="px-4 py-3 rounded-xl text-sm font-medium border transition-all
-                       bg-red-500/10 border-red-500/25 text-red-300 hover:bg-red-500/20 disabled:opacity-40
-                       flex items-center gap-1.5">
-            {submitting ? <SpinIcon className="w-3.5 h-3.5 animate-spin" /> : <XIcon className="w-3.5 h-3.5" />}
-            {t.dontKnow}
-          </button>
-          <button onClick={() => handleReview(true)} disabled={submitting}
-            className="px-4 py-3 rounded-xl text-sm font-medium border transition-all
-                       bg-emerald-500/10 border-emerald-500/25 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40
-                       flex items-center gap-1.5">
-            {submitting ? <SpinIcon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
-            {t.iKnow}
-          </button>
-        </div>
-
-        {/* Next — hidden on mobile */}
-        <button onClick={() => { stopAutoPlay(); goNext() }}
-          className="hidden sm:flex glass rounded-xl px-5 py-3 text-sm text-white/50 hover:text-white hover:bg-white/8 transition-all items-center gap-2">
-          {t.next}<ArrowRightIcon className="w-4 h-4" />
-        </button>
-
       </div>
       )}
 
       {!practiceMode && (
       <p className="text-center text-white/15 text-xs mt-4">
-        {autoPlay ? '← → skip · 1 know · 2 don\'t know · A pause' : t.keyboardHint}
+        {t.gradeHint}
       </p>
       )}
     </div>
