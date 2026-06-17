@@ -76,6 +76,13 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [mapWord, setMapWord] = useState(null)
   const [showAchievements, setShowAchievements] = useState(false)
   const [confetti, setConfetti] = useState(false)
+  const [theme, setTheme] = useState('dark')  // session-only, defaults dark
+
+  useEffect(() => {
+    const el = document.documentElement
+    if (theme === 'light') el.classList.add('light')
+    else el.classList.remove('light')
+  }, [theme])
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
   const [adding, setAdding]       = useState(false)
@@ -313,6 +320,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
         streak={streak}
         onLogout={onLogout}
         onOpenAchievements={() => setShowAchievements(true)}
+        theme={theme}
+        onToggleTheme={() => setTheme(th => th === 'dark' ? 'light' : 'dark')}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">

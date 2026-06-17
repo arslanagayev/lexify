@@ -3,7 +3,7 @@ import { useLang, LANG_OPTIONS } from '../i18n/LangContext'
 import { useAuth } from '../context/AuthContext'
 import logoSrc from '../assets/logo.png'
 
-export default function Header({ mode, onModeChange, count, streak, onLogout, onOpenAchievements }) {
+export default function Header({ mode, onModeChange, count, streak, onLogout, onOpenAchievements, theme, onToggleTheme }) {
   const { lang, setLang, t } = useLang()
   const { user } = useAuth()
 
@@ -50,6 +50,15 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
               </button>
             ))}
           </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={onToggleTheme}
+            title="Toggle theme"
+            className="glass rounded-xl px-2.5 py-1.5 text-white/60 hover:text-white transition-colors text-base leading-none"
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
 
           {/* Achievements */}
           <button
