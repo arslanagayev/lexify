@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts'
 import { useLang } from '../i18n/LangContext'
+import ReviewCalendar from './ReviewCalendar'
+import ErrorBoundary from './ErrorBoundary'
 
 export default function StatsPanel({ words, apiBase, token, onImportComplete }) {
   const { t } = useLang()
@@ -166,6 +168,11 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
           )}
         </div>
       </div>
+
+      {/* FAZ 18 — Spaced repetition calendar */}
+      <ErrorBoundary silent>
+        <ReviewCalendar apiBase={apiBase} token={token} words={words} />
+      </ErrorBoundary>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

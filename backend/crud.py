@@ -515,6 +515,32 @@ async def weekly_summary(db: AsyncSession, user_id: int) -> dict:
     }
 
 
+async def review_calendar(db: AsyncSession, user_id: int) -> dict:
+    today = date.today()
+    # Future/overdue: bucket by next_review date (overdue rolls up to today)
+    result = await db.execute(
+        select(Word.next_review).where(Word.user_id == user_id).where(Word.next_review.isnot(None))
+    )
+    due: dict[str, int] = {}
+    for (nr,) in result.all():
+        if not nr:
+            continue
+        d = nr.date()
+        if d < today:
+            d = today
+        key = d.isoformat()
+        due[key] = due.get(key, 0) + 1
+
+    # Past: review counts per day from the review log
+    rows = await db.execute(
+        select(func.date(ReviewLog.reviewed_at), func.count())
+        .where(ReviewLog.user_id == user_id)
+        .group_by(func.date(ReviewLog.reviewed_at))
+    )
+    done = {str(d): int(c) for d, c in rows.all() if d}
+    return {"due": due, "done": done}
+
+
 async def get_all_verified_users(db: AsyncSession) -> list[User]:
     result = await db.execute(select(User).where(User.is_verified == 1))
     return list(result.scalars().all())

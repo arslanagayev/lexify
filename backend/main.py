@@ -323,6 +323,16 @@ async def unlock_achievement_endpoint(
     return {"unlocked": newly}
 
 
+# ── Review calendar ───────────────────────────────────────────
+
+@app.get("/review/calendar")
+async def review_calendar(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await crud.review_calendar(db, current_user.id)
+
+
 # ── Stats ─────────────────────────────────────────────────────
 
 @app.get("/stats/overview")
