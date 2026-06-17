@@ -3,6 +3,7 @@ import { useLang } from '../i18n/LangContext'
 import { speak } from '../utils/speech'
 import PronounceCheck from './PronounceCheck'
 import ErrorBoundary from './ErrorBoundary'
+import WordFamily from './WordFamily'
 
 const POS_STYLE = {
   noun:        'bg-sky-500/15 text-sky-300 border-sky-500/25',
@@ -15,7 +16,7 @@ const POS_STYLE = {
 }
 const POS_DEFAULT = 'bg-white/8 text-white/40 border-white/15'
 
-export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, token, apiBase, style }) {
+export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, token, apiBase, ownedWords, onAddWord, style }) {
   const { t } = useLang()
   const [editing, setEditing]   = useState(false)
   const [saving, setSaving]     = useState(false)
@@ -258,6 +259,15 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
         <div className="pt-2 border-t border-white/5">
           <p className="text-[10px] uppercase tracking-widest text-white/25 mb-1">{t.etymology}</p>
           <p className="text-white/35 text-xs leading-relaxed">{w.etymology}</p>
+        </div>
+      )}
+
+      {/* ── Word Family ── */}
+      {onAddWord && (
+        <div className="pt-2 border-t border-white/5">
+          <ErrorBoundary silent>
+            <WordFamily wordId={w.id} token={token} apiBase={apiBase} ownedWords={ownedWords} onAddWord={onAddWord} />
+          </ErrorBoundary>
         </div>
       )}
 

@@ -113,3 +113,33 @@ async def evaluate_sentence(word: str, sentence: str) -> dict:
         "better_version": better,
         "score": score,
     }
+
+
+_FAMILY_PROMPT = (
+    "For the English word \"{word}\", give its word family (related words from the same root) "
+    "and the root origin.\n"
+    "Return ONLY JSON, no markdown, with exactly these keys:\n"
+    '{{"root": "short root/origin description", "family": ["word1", "word2", ...]}}\n'
+    "Include 3-8 real derived/related English words in 'family' (not the word itself)."
+)
+
+
+async def generate_word_family(word: str) -> dict:
+    import json as _json
+    client = _get_client()
+    resp = await client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": "You are an English etymology expert. Output JSON only."},
+            {"role": "user", "content": _FAMILY_PROMPT.format(word=word)},
+        ],
+        max_tokens=250,
+        temperature=0.2,
+        response_format={"type": "json_object"},
+    )
+    data = _json.loads(resp.choices[0].message.content)
+    family = data.get("family", [])
+    if not isinstance(family, list):
+        family = []
+    family = [str(w).strip() for w in family if str(w).strip()][:8]
+    return {"root": str(data.get("root", ""))[:200], "family": family}

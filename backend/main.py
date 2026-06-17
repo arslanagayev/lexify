@@ -28,7 +28,7 @@ from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
 from backend.lexify_bot import poll_loop as lexify_bot_poll
-from backend.chat import chat_completion, sanitize_history, evaluate_sentence
+from backend.chat import chat_completion, sanitize_history, evaluate_sentence, generate_word_family
 
 
 @asynccontextmanager
@@ -417,6 +417,34 @@ async def review_word(
     updated = await crud.update_review(db, word, body.known)
     await crud.log_activity(db)
     return updated
+
+
+@app.get("/words/{word_id}/family")
+async def word_family(
+    word_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import json as _json
+    word = await crud.get_word(db, word_id, user_id=current_user.id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+    if word.word_family:
+        try:
+            return _json.loads(word.word_family)
+        except Exception:
+            pass
+    try:
+        data = await generate_word_family(word.word)
+    except Exception as e:
+        asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
+        raise HTTPException(
+            status_code=503,
+            detail={"error_code": "ai_service_limited", "message": str(e)},
+        )
+    word.word_family = _json.dumps(data)
+    await db.commit()
+    return data
 
 
 @app.post("/words/{word_id}/pronunciation-attempt")

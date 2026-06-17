@@ -296,6 +296,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
     return matchText && matchTag && matchMastery
   })
 
+  const ownedWords = new Set(words.map(w => (w.word || '').toLowerCase()))
+
   const masteryCounts = words.reduce((acc, w) => {
     const s = w.mastery_status || 'new'
     acc[s] = (acc[s] || 0) + 1
@@ -373,6 +375,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                   onOpenMap={setMapWord}
                   token={token}
                   apiBase={API}
+                  ownedWords={ownedWords}
+                  onAddWord={handleAdd}
                 />
                   </>
                 )}
