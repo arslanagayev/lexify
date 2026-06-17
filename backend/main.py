@@ -89,6 +89,14 @@ async def get_current_user(
     return user
 
 
+async def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
+    # Admin access requires a real web JWT whose user has is_admin set in the DB.
+    # The Telegram bot and AI never hold such tokens, so they cannot reach admin routes.
+    if not getattr(current_user, "is_admin", 0):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return current_user
+
+
 # ── Auth ──────────────────────────────────────────────────────
 
 @app.post("/auth/register", status_code=201)
@@ -324,6 +332,16 @@ async def unlock_achievement_endpoint(
         raise HTTPException(status_code=400, detail="Not an unlockable event achievement")
     newly = await crud.unlock_achievement(db, current_user.id, body.achievement_id)
     return {"unlocked": newly}
+
+
+# ── Admin (web-only, JWT + is_admin) ──────────────────────────
+
+@app.get("/admin/stats")
+async def admin_stats(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    return await crud.admin_stats(db)
 
 
 # ── Word list sharing ─────────────────────────────────────────

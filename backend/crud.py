@@ -709,6 +709,28 @@ async def get_all_verified_users(db: AsyncSession) -> list[User]:
     return list(result.scalars().all())
 
 
+async def admin_stats(db: AsyncSession) -> dict:
+    total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    total_words = (await db.execute(select(func.count(Word.id)))).scalar() or 0
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    active = (await db.execute(
+        select(func.count(func.distinct(ReviewLog.user_id)))
+        .where(ReviewLog.reviewed_at >= week_ago)
+    )).scalar() or 0
+    total_reviews = (await db.execute(select(func.count(ReviewLog.id)))).scalar() or 0
+    linked = (await db.execute(
+        select(func.count(User.id)).where(User.telegram_chat_id.isnot(None))
+    )).scalar() or 0
+    return {
+        "total_users": total_users,
+        "total_words": total_words,
+        "active_users_7d": active,
+        "total_reviews": total_reviews,
+        "telegram_linked": linked,
+        "healthy": True,
+    }
+
+
 async def set_weekly_email(db: AsyncSession, user: User, enabled: bool) -> User:
     user.weekly_email = 1 if enabled else 0
     await db.commit()

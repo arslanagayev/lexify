@@ -75,6 +75,7 @@ class UserResponse(BaseModel):
     telegram_bot_connected: bool = False
     telegram_linked: bool = False
     weekly_email: bool = True
+    is_admin: bool = False
 
     model_config = {"from_attributes": True}
 

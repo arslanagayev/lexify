@@ -17,6 +17,7 @@ import { ToastContainer } from './components/Toast'
 import FloatingChatWidget from './components/FloatingChatWidget'
 import ImportWordsModal from './components/ImportWordsModal'
 import DiscoverPanel from './components/DiscoverPanel'
+import AdminPanel from './components/AdminPanel'
 import WordMapModal from './components/WordMapModal'
 import AchievementsModal from './components/AchievementsModal'
 import Confetti from './components/Confetti'
@@ -360,6 +361,10 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
           <SettingsPage />
         ) : mode === 'discover' ? (
           <DiscoverPanel apiBase={API} token={token} onAdded={fetchWords} />
+        ) : mode === 'admin' ? (
+          <ErrorBoundary silent>
+            <AdminPanel apiBase={API} token={token} />
+          </ErrorBoundary>
         ) : (
           <>
             {mode !== 'stats' && mode !== 'quiz' && (
