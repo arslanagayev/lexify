@@ -101,22 +101,9 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
                  hover:-translate-y-1 hover:shadow-2xl hover:shadow-violet-500/10
                  transition-all duration-300 animate-fade-up group"
     >
-      {/* ── Word + POS + actions ── */}
+      {/* ── Badges row + actions ── */}
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-white tracking-tight truncate">{w.word}</h2>
-            <SpeakBtn
-              active={speaking === 'word'}
-              onClick={() => handleSpeak(w.word, 'en-US', 'word')}
-              compact title={t.pronounce}
-            />
-          </div>
-          {w.phonetic && (
-            <p className="font-mono text-sm text-white/35 mt-0.5">{w.phonetic}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           {w.mastery_status === 'mastered' && (
             <span className="text-[11px] font-medium px-2.5 py-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -140,6 +127,8 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
               {w.part_of_speech}
             </span>
           )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
           {(w.synonyms || w.antonyms || w.collocations) && onOpenMap && (
             <button onClick={() => onOpenMap(w)}
               className="p-1.5 rounded-lg text-white/20 hover:text-cyan-300 hover:bg-cyan-500/10 transition-all opacity-0 group-hover:opacity-100"
@@ -158,6 +147,21 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
             {deleting ? <SpinIcon className="w-3.5 h-3.5 animate-spin" /> : <TrashIcon className="w-3.5 h-3.5" />}
           </button>
         </div>
+      </div>
+
+      {/* ── Word title + phonetic ── */}
+      <div className="-mt-1">
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-white tracking-tight break-words">{w.word}</h2>
+          <SpeakBtn
+            active={speaking === 'word'}
+            onClick={() => handleSpeak(w.word, 'en-US', 'word')}
+            compact title={t.pronounce}
+          />
+        </div>
+        {w.phonetic && (
+          <p className="font-mono text-sm text-white/35 mt-0.5">{w.phonetic}</p>
+        )}
       </div>
 
       {/* ── Chinese meaning ── */}
