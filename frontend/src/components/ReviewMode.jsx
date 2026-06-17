@@ -16,6 +16,8 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
   const [practiceSentence, setPracticeSentence] = useState('')
   const [practiceResult, setPracticeResult]   = useState(null)
   const [practiceLoading, setPracticeLoading] = useState(false)
+  const [exampleCache, setExampleCache] = useState({})  // wordId -> [sentences]
+  const [exampleIdx, setExampleIdx]     = useState({})  // wordId -> index
   const [autoStep, setAutoStep]     = useState('')  // current step label
   const cancelRef = useRef(false)   // signals running sequence to abort
   const timerRef  = useRef(null)
@@ -87,6 +89,26 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
     setPracticeSentence('')
     goNext()
   }, [goNext])
+
+  const cycleExample = useCallback(async (e) => {
+    e.stopPropagation()
+    if (!current) return
+    const id = current.id
+    let list = exampleCache[id]
+    if (!list) {
+      try {
+        const res = await fetch(`${apiBase}/words/${id}/examples`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const d = await res.json()
+        list = d.examples?.length ? d.examples : [current.example_sentence]
+      } catch {
+        list = [current.example_sentence]
+      }
+      setExampleCache(c => ({ ...c, [id]: list }))
+    }
+    setExampleIdx(ix => ({ ...ix, [id]: ((ix[id] ?? 0) + 1) % list.length }))
+  }, [current, exampleCache, apiBase, token])
 
   // ── Auto-play sequence ──────────────────────────────────────
   const stopAutoPlay = useCallback(() => {
@@ -312,15 +334,24 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
               <p className="text-white/35 text-base font-mono mt-1 mb-4 tracking-wide">{current.chinese_pinyin}</p>
             )}
 
-            {current.example_sentence && (
+            {current.example_sentence && (() => {
+              const exList = exampleCache[current.id]
+              const shownExample = exList && exList.length
+                ? exList[(exampleIdx[current.id] ?? 0) % exList.length]
+                : current.example_sentence
+              return (
               <div className="bg-white/5 rounded-2xl p-4 mb-3 border border-white/5">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] uppercase tracking-widest text-white/25">{t.example}</p>
-                  <SpeakMini active={speaking === 'en'}
-                    onClick={e => { e.stopPropagation(); handleSpeak(current.example_sentence, 'en-US', 'en') }}
-                    label="en-US" />
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={cycleExample} title={t.anotherExample}
+                      className="text-white/30 hover:text-violet-300 transition-colors text-xs">🔄</button>
+                    <SpeakMini active={speaking === 'en'}
+                      onClick={e => { e.stopPropagation(); handleSpeak(shownExample, 'en-US', 'en') }}
+                      label="en-US" />
+                  </div>
                 </div>
-                <p className="text-white/60 text-sm italic leading-relaxed">"{current.example_sentence}"</p>
+                <p className="text-white/60 text-sm italic leading-relaxed">"{shownExample}"</p>
 
                 {current.chinese_translation && (
                   <div className="flex items-start justify-between gap-2 mt-3 pt-2.5 border-t border-white/5">
@@ -331,7 +362,8 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
                   </div>
                 )}
               </div>
-            )}
+              )
+            })()}
 
             {(current.synonyms || current.antonyms || current.collocations) && (
               <div className="flex flex-col gap-1.5 mt-1" onClick={e => e.stopPropagation()}>

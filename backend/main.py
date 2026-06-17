@@ -29,7 +29,7 @@ from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
 from backend.lexify_bot import poll_loop as lexify_bot_poll
-from backend.chat import chat_completion, sanitize_history, evaluate_sentence, generate_word_family
+from backend.chat import chat_completion, sanitize_history, evaluate_sentence, generate_word_family, generate_examples
 
 
 @asynccontextmanager
@@ -451,6 +451,42 @@ async def review_word(
     updated = await crud.update_review(db, word, body.known, quality=body.quality)
     await crud.log_activity(db)
     return updated
+
+
+@app.get("/words/{word_id}/examples")
+async def word_examples(
+    word_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import json as _json
+    word = await crud.get_word(db, word_id, user_id=current_user.id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+    examples = []
+    if word.example_sentence:
+        examples.append(word.example_sentence)
+    if word.extra_examples:
+        try:
+            examples.extend(_json.loads(word.extra_examples))
+        except Exception:
+            pass
+    else:
+        try:
+            extra = await generate_examples(word.word)
+        except Exception as e:
+            asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
+            extra = []
+        if extra:
+            word.extra_examples = _json.dumps(extra)
+            await db.commit()
+            examples.extend(extra)
+    # De-dup preserving order
+    seen, out = set(), []
+    for s in examples:
+        if s and s not in seen:
+            seen.add(s); out.append(s)
+    return {"examples": out}
 
 
 @app.get("/words/{word_id}/family")

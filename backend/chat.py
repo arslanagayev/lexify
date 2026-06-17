@@ -131,6 +131,33 @@ _FAMILY_PROMPT = (
 )
 
 
+_EXAMPLES_PROMPT = (
+    "Write 3 natural English example sentences using the word \"{word}\", each in a "
+    "different everyday context. Return ONLY JSON, no markdown:\n"
+    '{{"examples": ["sentence 1", "sentence 2", "sentence 3"]}}'
+)
+
+
+async def generate_examples(word: str) -> list[str]:
+    import json as _json
+    client = _get_client()
+    resp = await client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": "You are an English teacher. Output JSON only."},
+            {"role": "user", "content": _EXAMPLES_PROMPT.format(word=word)},
+        ],
+        max_tokens=300,
+        temperature=0.5,
+        response_format={"type": "json_object"},
+    )
+    data = _json.loads(resp.choices[0].message.content)
+    out = data.get("examples", [])
+    if not isinstance(out, list):
+        return []
+    return [str(x).strip() for x in out if str(x).strip()][:3]
+
+
 async def generate_word_family(word: str) -> dict:
     import json as _json
     client = _get_client()
