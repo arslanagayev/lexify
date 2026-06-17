@@ -13,7 +13,7 @@ const POS_STYLE = {
 }
 const POS_DEFAULT = 'bg-white/8 text-white/40 border-white/15'
 
-export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, style }) {
+export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, style }) {
   const { t } = useLang()
   const [editing, setEditing]   = useState(false)
   const [saving, setSaving]     = useState(false)
