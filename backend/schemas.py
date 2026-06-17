@@ -282,3 +282,7 @@ class AchievementUnlock(BaseModel):
 
 class WeeklyEmailRequest(BaseModel):
     enabled: bool
+
+
+class ShareListRequest(BaseModel):
+    title: str = ""

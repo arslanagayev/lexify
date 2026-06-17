@@ -643,6 +643,67 @@ async def review_calendar(db: AsyncSession, user_id: int) -> dict:
     return {"due": due, "done": done}
 
 
+_SHARE_FIELDS = ["word", "phonetic", "part_of_speech", "chinese_meaning", "chinese_pinyin",
+                 "example_sentence", "chinese_translation", "synonyms", "antonyms",
+                 "collocations", "etymology", "tags"]
+
+
+async def create_shared_list(db: AsyncSession, user: User, title: str) -> str:
+    import json as _json, secrets
+    from backend.models import SharedList
+    words = await get_words(db, user_id=user.id)
+    snapshot = [{f: getattr(w, f) for f in _SHARE_FIELDS} for w in words]
+    code = secrets.token_urlsafe(6)[:10]
+    db.add(SharedList(
+        code=code, owner_id=user.id,
+        owner_name=(user.first_name or user.username or ""),
+        title=title or "Shared word list",
+        words_json=_json.dumps(snapshot),
+    ))
+    await db.commit()
+    return code
+
+
+async def get_shared_list(db: AsyncSession, code: str) -> Optional[dict]:
+    import json as _json
+    from backend.models import SharedList
+    result = await db.execute(select(SharedList).where(SharedList.code == code))
+    sl = result.scalar_one_or_none()
+    if not sl:
+        return None
+    try:
+        words = _json.loads(sl.words_json)
+    except Exception:
+        words = []
+    return {"code": sl.code, "title": sl.title, "owner": sl.owner_name,
+            "count": len(words), "words": words}
+
+
+async def import_shared_list(db: AsyncSession, user: User, code: str) -> Optional[dict]:
+    import json as _json
+    from backend.models import SharedList
+    result = await db.execute(select(SharedList).where(SharedList.code == code))
+    sl = result.scalar_one_or_none()
+    if not sl:
+        return None
+    try:
+        words = _json.loads(sl.words_json)
+    except Exception:
+        words = []
+    imported, skipped = 0, 0
+    for data in words:
+        w = (data.get("word") or "").strip()
+        if not w:
+            continue
+        if await get_word_by_text(db, w, user_id=user.id):
+            skipped += 1
+            continue
+        clean = {k: v for k, v in data.items() if k in _SHARE_FIELDS}
+        await create_word(db, clean, user_id=user.id)
+        imported += 1
+    return {"imported": imported, "skipped": skipped}
+
+
 async def get_all_verified_users(db: AsyncSession) -> list[User]:
     result = await db.execute(select(User).where(User.is_verified == 1))
     return list(result.scalars().all())

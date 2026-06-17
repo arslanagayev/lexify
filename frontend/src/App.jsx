@@ -5,6 +5,7 @@ import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import SettingsPage from './pages/SettingsPage'
 import PrivacyPolicy from './pages/PrivacyPolicy'
+import SharedListPage from './pages/SharedListPage'
 import Header from './components/Header'
 import SearchBar from './components/SearchBar'
 import WordGrid from './components/WordGrid'
@@ -31,6 +32,10 @@ export default function App() {
 
   if (window.location.pathname === '/privacy') {
     return <PrivacyPolicy />
+  }
+
+  if (window.location.pathname.startsWith('/shared/')) {
+    return <SharedListPage />
   }
 
   if (!token) {
@@ -77,6 +82,20 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [mapWord, setMapWord] = useState(null)
   const [showAchievements, setShowAchievements] = useState(false)
   const [confetti, setConfetti] = useState(false)
+  const [shareListUrl, setShareListUrl] = useState(null)
+
+  const createShareLink = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/lists/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: '' }),
+      })
+      if (!res.ok) return
+      const d = await res.json()
+      setShareListUrl(d.url)
+    } catch { /* ignore */ }
+  }, [token])
   const [theme, setTheme] = useState('dark')  // session-only, defaults dark
 
   useEffect(() => {
@@ -391,6 +410,14 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                         >
                           📥 {t.importWordsBtn}
                         </button>
+                        {words.length > 0 && (
+                          <button
+                            onClick={createShareLink}
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-white/50 hover:text-white transition-all"
+                          >
+                            🔗 {t.shareListBtn}
+                          </button>
+                        )}
                       </div>
                     </div>
                     {allTags.length > 0 && (
@@ -459,6 +486,28 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       )}
 
       {confetti && <Confetti />}
+
+      {shareListUrl && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShareListUrl(null)}>
+          <div className="glass rounded-3xl border border-white/10 shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold grad-text mb-2">{t.shareListTitle}</h2>
+            <p className="text-white/45 text-sm mb-4">{t.shareListDesc}</p>
+            <div className="flex gap-2">
+              <input readOnly value={shareListUrl}
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white/80" />
+              <button
+                onClick={() => navigator.clipboard?.writeText(shareListUrl)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-sky-500 text-white text-sm font-medium">
+                {t.telegramCopyCode}
+              </button>
+            </div>
+            <button onClick={() => setShareListUrl(null)}
+              className="mt-4 w-full py-2 rounded-xl glass border border-white/10 text-white/50 hover:text-white text-sm transition-all">
+              {t.importDone}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

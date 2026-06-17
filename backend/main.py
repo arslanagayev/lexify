@@ -326,6 +326,38 @@ async def unlock_achievement_endpoint(
     return {"unlocked": newly}
 
 
+# ── Word list sharing ─────────────────────────────────────────
+
+@app.post("/lists/share")
+async def create_list_share(
+    body: schemas.ShareListRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    code = await crud.create_shared_list(db, current_user, body.title)
+    return {"code": code, "url": f"https://lexifyvocab.tech/shared/{code}"}
+
+
+@app.get("/shared/{code}")
+async def view_shared_list(code: str, db: AsyncSession = Depends(get_db)):
+    data = await crud.get_shared_list(db, code)
+    if not data:
+        raise HTTPException(status_code=404, detail="Shared list not found")
+    return data
+
+
+@app.post("/shared/{code}/import")
+async def import_shared(
+    code: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await crud.import_shared_list(db, current_user, code)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Shared list not found")
+    return result
+
+
 # ── Shareable progress card ───────────────────────────────────
 
 def _build_progress_svg(name: str, added: int, mastered: int, streak: int, total: int) -> str:

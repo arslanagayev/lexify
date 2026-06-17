@@ -127,6 +127,20 @@ class ReviewLog(Base):
     )
 
 
+class SharedList(Base):
+    __tablename__ = "shared_lists"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(16), unique=True, nullable=False, index=True)
+    owner_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    owner_name: Mapped[str] = mapped_column(String(100), nullable=False, server_default="")
+    title: Mapped[str] = mapped_column(String(120), nullable=False, server_default="")
+    words_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Achievement(Base):
     __tablename__ = "achievements"
 
