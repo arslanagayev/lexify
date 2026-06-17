@@ -326,6 +326,57 @@ async def unlock_achievement_endpoint(
     return {"unlocked": newly}
 
 
+# ── Shareable progress card ───────────────────────────────────
+
+def _build_progress_svg(name: str, added: int, mastered: int, streak: int, total: int) -> str:
+    import html as _html
+    safe = _html.escape((name or "Learner").strip()[:20])
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="600" height="315" viewBox="0 0 600 315">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d0d18"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="315" rx="20" fill="url(#bg)"/>
+  <circle cx="540" cy="40" r="120" fill="#6d28d9" opacity="0.12"/>
+  <text x="40" y="62" font-family="Arial, sans-serif" font-size="26" font-weight="800" fill="url(#accent)">Lexify</text>
+  <text x="40" y="86" font-family="Arial, sans-serif" font-size="13" fill="#94a3b8">AI Vocabulary Learning</text>
+  <text x="40" y="150" font-family="Arial, sans-serif" font-size="40" font-weight="800" fill="#ffffff">{added} words</text>
+  <text x="40" y="180" font-family="Arial, sans-serif" font-size="18" fill="#cbd5e1">learned this week, {safe}! 🔥</text>
+  <g font-family="Arial, sans-serif">
+    <text x="40"  y="250" font-size="30" font-weight="700" fill="#34d399">{mastered}</text>
+    <text x="40"  y="272" font-size="12" fill="#94a3b8">Mastered</text>
+    <text x="200" y="250" font-size="30" font-weight="700" fill="#fbbf24">{streak}🔥</text>
+    <text x="200" y="272" font-size="12" fill="#94a3b8">Day streak</text>
+    <text x="380" y="250" font-size="30" font-weight="700" fill="#38bdf8">{total}</text>
+    <text x="380" y="272" font-size="12" fill="#94a3b8">Total words</text>
+  </g>
+  <text x="560" y="295" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#64748b">lexifyvocab.tech</text>
+</svg>"""
+
+
+@app.get("/share/progress-card")
+async def share_progress_card(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ov = await crud.get_stats_overview(db, current_user.id)
+    added_week = sum(ov.get("weekly_added", []))
+    svg = _build_progress_svg(
+        name=current_user.first_name,
+        added=added_week,
+        mastered=ov.get("mastered_count", 0),
+        streak=ov.get("current_streak", 0),
+        total=ov.get("total_words", 0),
+    )
+    return {"svg": svg}
+
+
 # ── Review calendar ───────────────────────────────────────────
 
 @app.get("/review/calendar")

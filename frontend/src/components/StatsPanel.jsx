@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts'
 import { useLang } from '../i18n/LangContext'
 import ReviewCalendar from './ReviewCalendar'
+import ShareCard from './ShareCard'
 import ErrorBoundary from './ErrorBoundary'
 
 export default function StatsPanel({ words, apiBase, token, onImportComplete }) {
@@ -9,6 +10,7 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
   const [stats, setStats]           = useState(null)
   const [overview, setOverview]     = useState(null)
   const [insights, setInsights]     = useState(null)
+  const [showShare, setShowShare]   = useState(false)
   const [loading, setLoading]       = useState(true)
   const [reviewLog, setReviewLog]   = useState([])
   const [importMsg, setImportMsg]   = useState(null)
@@ -111,6 +113,10 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
         {importMsg && (
           <p className={`text-xs flex-1 ${importMsg === t.importError ? 'text-red-400' : 'text-emerald-400'}`}>{importMsg}</p>
         )}
+        <button onClick={() => setShowShare(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl glass border border-white/10 text-white/50 hover:text-white text-sm transition-all">
+          🔗 {t.shareProgress}
+        </button>
         <button onClick={handleExport}
           className="flex items-center gap-2 px-4 py-2 rounded-xl glass border border-white/10 text-white/50 hover:text-white text-sm transition-all">
           <DownloadIcon className="w-4 h-4" />{t.exportWords}
@@ -317,6 +323,12 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
           </div>
         )}
       </div>
+
+      {showShare && (
+        <ErrorBoundary silent>
+          <ShareCard apiBase={apiBase} token={token} onClose={() => setShowShare(false)} />
+        </ErrorBoundary>
+      )}
     </div>
   )
 }
