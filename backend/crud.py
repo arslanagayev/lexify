@@ -626,27 +626,31 @@ async def log_activity(db: AsyncSession) -> None:
         await db.commit()
 
 
-async def get_streak(db: AsyncSession) -> dict:
-    result = await db.execute(select(DailyActivity.date).order_by(DailyActivity.date.desc()))
-    dates = {row[0] for row in result.fetchall()}
+async def get_streak(db: AsyncSession, user_id: int) -> dict:
+    # Per-user activity = days the user reviewed OR added a word
+    r1 = await db.execute(
+        select(func.date(ReviewLog.reviewed_at)).where(ReviewLog.user_id == user_id)
+    )
+    dates = {str(x[0]) for x in r1.all() if x[0]}
+    r2 = await db.execute(
+        select(func.date(Word.created_at)).where(Word.user_id == user_id)
+    )
+    dates |= {str(x[0]) for x in r2.all() if x[0]}
+
+    if not dates:
+        return {"streak": 0, "last_active": None}
 
     streak = 0
     last_active = None
     check = date.today()
-
+    # Allow a streak that ends today or yesterday
+    if check.isoformat() not in dates:
+        check = check - timedelta(days=1)
     while check.isoformat() in dates:
         if streak == 0:
             last_active = check.isoformat()
         streak += 1
         check = check - timedelta(days=1)
-
-    if streak == 0:
-        check = date.today() - timedelta(days=1)
-        while check.isoformat() in dates:
-            if streak == 0:
-                last_active = check.isoformat()
-            streak += 1
-            check = check - timedelta(days=1)
 
     return {"streak": streak, "last_active": last_active}
 

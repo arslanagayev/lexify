@@ -532,7 +532,7 @@ async def get_streak(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await crud.get_streak(db)
+    return await crud.get_streak(db, current_user.id)
 
 
 # ── Review Log ────────────────────────────────────────────────
