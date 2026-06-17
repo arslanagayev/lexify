@@ -346,6 +346,14 @@ async def stats_overview(
     return await crud.get_stats_overview(db, current_user.id)
 
 
+@app.get("/stats/insights")
+async def stats_insights(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await crud.learning_insights(db, current_user.id)
+
+
 @app.get("/stats/word/{word_id}")
 async def stats_word(
     word_id: int,

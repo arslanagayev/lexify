@@ -551,6 +551,30 @@ async def get_stats_overview(db: AsyncSession, user_id: int) -> dict:
     }
 
 
+async def learning_insights(db: AsyncSession, user_id: int) -> dict:
+    result = await db.execute(select(Word).where(Word.user_id == user_id))
+    words = list(result.scalars().all())
+    buckets: dict[str, dict] = {}
+    for w in words:
+        pos = (w.part_of_speech or "other").lower().strip() or "other"
+        b = buckets.setdefault(pos, {"reviews": 0, "known": 0, "count": 0})
+        b["reviews"] += w.review_count
+        b["known"] += w.known_count
+        b["count"] += 1
+
+    by_pos = []
+    for pos, b in buckets.items():
+        acc = round(b["known"] / b["reviews"], 3) if b["reviews"] else None
+        by_pos.append({"pos": pos, "accuracy": acc, "reviews": b["reviews"], "count": b["count"]})
+    by_pos.sort(key=lambda x: (x["accuracy"] is None, x["accuracy"] if x["accuracy"] is not None else 1))
+
+    # Weakest = lowest accuracy among categories with enough data
+    graded = [p for p in by_pos if p["accuracy"] is not None and p["reviews"] >= 3]
+    weakest = graded[0]["pos"] if graded else None
+    strongest = graded[-1]["pos"] if graded else None
+    return {"by_pos": by_pos, "weakest_pos": weakest, "strongest_pos": strongest}
+
+
 async def get_word_stats(db: AsyncSession, user_id: int, word_id: int) -> Optional[dict]:
     word = await get_word(db, word_id, user_id=user_id)
     if not word:

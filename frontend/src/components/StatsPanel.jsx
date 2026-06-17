@@ -8,6 +8,7 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
   const { t } = useLang()
   const [stats, setStats]           = useState(null)
   const [overview, setOverview]     = useState(null)
+  const [insights, setInsights]     = useState(null)
   const [loading, setLoading]       = useState(true)
   const [reviewLog, setReviewLog]   = useState([])
   const [importMsg, setImportMsg]   = useState(null)
@@ -27,6 +28,10 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
     fetch(`${apiBase}/stats/overview`, { headers: authHeader })
       .then(r => r.json())
       .then(setOverview)
+      .catch(() => {})
+    fetch(`${apiBase}/stats/insights`, { headers: authHeader })
+      .then(r => r.json())
+      .then(setInsights)
       .catch(() => {})
   }, [apiBase, words.length])
 
@@ -168,6 +173,30 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
           )}
         </div>
       </div>
+
+      {/* FAZ 20 — Learning insights */}
+      {insights && insights.weakest_pos && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white/60 mb-3">💡 {t.insightsTitle}</h3>
+          <p className="text-sm text-white/70 mb-4">
+            {t.insightWeakest(insights.weakest_pos)}
+            {insights.strongest_pos && insights.strongest_pos !== insights.weakest_pos
+              && ' ' + t.insightStrongest(insights.strongest_pos)}
+          </p>
+          <div className="space-y-1.5">
+            {insights.by_pos.filter(p => p.accuracy !== null).map(p => (
+              <div key={p.pos} className="flex items-center gap-3">
+                <span className="text-white/50 text-xs w-24 truncate shrink-0 capitalize">{p.pos}</span>
+                <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-emerald-400"
+                       style={{ width: `${Math.round(p.accuracy * 100)}%` }} />
+                </div>
+                <span className="text-white/25 text-xs w-9 text-right shrink-0">{Math.round(p.accuracy * 100)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* FAZ 18 — Spaced repetition calendar */}
       <ErrorBoundary silent>

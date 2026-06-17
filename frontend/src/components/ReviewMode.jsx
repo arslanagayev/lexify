@@ -23,11 +23,12 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
   // Exclude mastered words by default; user can opt to include them
   const queue = [...words]
     .filter(w => includeMastered || w.mastery_status !== 'mastered')
-    // Overdue-first sort
+    // Overdue-first, then hardest-first (adaptive: surface struggled words)
     .sort((a, b) => {
       const aD = a.next_review ? new Date(a.next_review) : new Date(0)
       const bD = b.next_review ? new Date(b.next_review) : new Date(0)
-      return aD - bD
+      if (aD - bD !== 0) return aD - bD
+      return (b.difficulty_score || 0) - (a.difficulty_score || 0)
     })
   const current = queue[index % Math.max(queue.length, 1)]
 
