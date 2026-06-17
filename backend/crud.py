@@ -478,6 +478,69 @@ async def get_word_stats(db: AsyncSession, user_id: int, word_id: int) -> Option
     }
 
 
+# ── Achievements ──────────────────────────────────────────────
+
+async def unlock_achievement(db: AsyncSession, user_id: int, achievement_id: str) -> bool:
+    from backend.models import Achievement
+    from backend.achievements import ACHIEVEMENT_IDS
+    if achievement_id not in ACHIEVEMENT_IDS:
+        return False
+    existing = await db.execute(
+        select(Achievement).where(
+            Achievement.user_id == user_id,
+            Achievement.achievement_id == achievement_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return False
+    db.add(Achievement(user_id=user_id, achievement_id=achievement_id))
+    await db.commit()
+    return True
+
+
+async def evaluate_achievements(db: AsyncSession, user_id: int) -> list[str]:
+    """Unlock any newly-earned state-based achievements. Returns newly unlocked ids."""
+    result = await db.execute(select(Word).where(Word.user_id == user_id))
+    words = list(result.scalars().all())
+    total_words = len(words)
+    mastered = sum(1 for w in words if w.mastery_status == "mastered")
+    total_reviews = sum(w.review_count for w in words)
+    pron_total = sum(w.pronunciation_score or 0 for w in words)
+    streak = await _review_streak(db, user_id)
+
+    earned = []
+    if total_words >= 1: earned.append("first_word")
+    if total_words >= 10: earned.append("ten_words")
+    if total_words >= 50: earned.append("fifty_words")
+    if mastered >= 1: earned.append("first_mastered")
+    if streak >= 3: earned.append("streak_3")
+    if streak >= 7: earned.append("streak_7")
+    if streak >= 30: earned.append("streak_30")
+    if total_reviews >= 100: earned.append("hundred_reviews")
+    if pron_total >= 10: earned.append("pronunciation_master")
+
+    newly = []
+    for aid in earned:
+        if await unlock_achievement(db, user_id, aid):
+            newly.append(aid)
+    return newly
+
+
+async def get_achievements(db: AsyncSession, user_id: int) -> list[dict]:
+    from backend.models import Achievement
+    from backend.achievements import ACHIEVEMENTS
+    rows = await db.execute(select(Achievement).where(Achievement.user_id == user_id))
+    unlocked = {a.achievement_id: a.unlocked_at for a in rows.scalars().all()}
+    return [
+        {
+            **a,
+            "unlocked": a["id"] in unlocked,
+            "unlocked_at": unlocked.get(a["id"]).isoformat() if unlocked.get(a["id"]) else None,
+        }
+        for a in ACHIEVEMENTS
+    ]
+
+
 # ── Streak ────────────────────────────────────────────────────
 
 async def log_activity(db: AsyncSession) -> None:

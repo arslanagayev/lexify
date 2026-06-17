@@ -287,6 +287,31 @@ async def chat(
     return {"reply": reply}
 
 
+# ── Achievements ──────────────────────────────────────────────
+
+@app.get("/achievements")
+async def list_achievements(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    newly = await crud.evaluate_achievements(db, current_user.id)
+    achievements = await crud.get_achievements(db, current_user.id)
+    return {"achievements": achievements, "newly_unlocked": newly}
+
+
+@app.post("/achievements/unlock")
+async def unlock_achievement_endpoint(
+    body: schemas.AchievementUnlock,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from backend.achievements import EVENT_ACHIEVEMENTS
+    if body.achievement_id not in EVENT_ACHIEVEMENTS:
+        raise HTTPException(status_code=400, detail="Not an unlockable event achievement")
+    newly = await crud.unlock_achievement(db, current_user.id, body.achievement_id)
+    return {"unlocked": newly}
+
+
 # ── Stats ─────────────────────────────────────────────────────
 
 @app.get("/stats/overview")

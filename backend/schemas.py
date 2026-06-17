@@ -271,3 +271,7 @@ class FillBlankAnswer(BaseModel):
 
 class PronunciationAttempt(BaseModel):
     success: bool
+
+
+class AchievementUnlock(BaseModel):
+    achievement_id: str

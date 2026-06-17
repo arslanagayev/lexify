@@ -17,6 +17,9 @@ import FloatingChatWidget from './components/FloatingChatWidget'
 import ImportWordsModal from './components/ImportWordsModal'
 import DiscoverPanel from './components/DiscoverPanel'
 import WordMapModal from './components/WordMapModal'
+import AchievementsModal from './components/AchievementsModal'
+import Confetti from './components/Confetti'
+import ErrorBoundary from './components/ErrorBoundary'
 import { useLang } from './i18n/LangContext'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -63,13 +66,16 @@ export default function App() {
 let _toastId = 0
 
 function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  const seenLangs = useRef(new Set())
   const [words, setWords]         = useState([])
   const [query, setQuery]         = useState('')
   const [tagFilter, setTagFilter] = useState('')
   const [masteryFilter, setMasteryFilter] = useState('all')
   const [showImport, setShowImport] = useState(false)
   const [mapWord, setMapWord] = useState(null)
+  const [showAchievements, setShowAchievements] = useState(false)
+  const [confetti, setConfetti] = useState(false)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
   const [adding, setAdding]       = useState(false)
@@ -134,10 +140,40 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
     } catch { /* ignore */ }
   }, [token])
 
+  const checkAchievements = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/achievements`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.newly_unlocked?.length) {
+        const byId = Object.fromEntries((data.achievements || []).map(a => [a.id, a]))
+        data.newly_unlocked.forEach(id => {
+          const a = byId[id]
+          if (a) addToast(a.icon || '🏆', t.achievementUnlocked, a.name)
+        })
+        setConfetti(true)
+        setTimeout(() => setConfetti(false), 2600)
+      }
+    } catch { /* ignore */ }
+  }, [token, addToast, t])
+
   useEffect(() => {
     fetchWords()
     fetchStreak()
-  }, [fetchWords, fetchStreak])
+    checkAchievements()
+  }, [fetchWords, fetchStreak, checkAchievements])
+
+  // Polyglot achievement: all 4 interface languages used this session
+  useEffect(() => {
+    seenLangs.current.add(lang)
+    if (seenLangs.current.size >= 4 && token) {
+      fetch(`${API}/achievements/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ achievement_id: 'polyglot' }),
+      }).then(r => r.ok && r.json()).then(d => { if (d?.unlocked) checkAchievements() }).catch(() => {})
+    }
+  }, [lang, token, checkAchievements])
 
   // ── Silent background polling ─────────────────────────────
   useEffect(() => {
@@ -197,6 +233,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       setWords(prev => [newWord, ...prev])
       setQuery('')
       fetchStreak()
+      checkAchievements()
     } catch (e) {
       setAddError(e.message)
     } finally {
@@ -238,6 +275,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
     const updated = await res.json()
     setWords(prev => prev.map(w => (w.id === id ? updated : w)))
     fetchStreak()
+    checkAchievements()
     return updated
   }, [authHeaders, handleUnauth, fetchStreak])
 
@@ -272,6 +310,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
         count={words.length}
         streak={streak}
         onLogout={onLogout}
+        onOpenAchievements={() => setShowAchievements(true)}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
@@ -373,6 +412,14 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       {mapWord && (
         <WordMapModal word={mapWord} words={words} onClose={() => setMapWord(null)} />
       )}
+
+      {showAchievements && (
+        <ErrorBoundary silent>
+          <AchievementsModal apiBase={API} token={token} onClose={() => setShowAchievements(false)} />
+        </ErrorBoundary>
+      )}
+
+      {confetti && <Confetti />}
     </div>
   )
 }

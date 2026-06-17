@@ -104,6 +104,17 @@ class ReviewLog(Base):
     )
 
 
+class Achievement(Base):
+    __tablename__ = "achievements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    achievement_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    unlocked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class CefrWord(Base):
     __tablename__ = "cefr_words"
 

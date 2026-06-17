@@ -38,6 +38,17 @@ export default function QuizMode({ words, token }) {
     if (!finished) fetchQuestion()
   }, [])
 
+  // Perfect-quiz achievement
+  useEffect(() => {
+    if (finished && score.total > 0 && score.correct === score.total && token) {
+      fetch(`${API}/achievements/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ achievement_id: 'perfect_quiz' }),
+      }).catch(() => {})
+    }
+  }, [finished, score, token])
+
   const handleSelect = (idx) => {
     if (selected !== null) return
     const isCorrect = question.options[idx].correct
