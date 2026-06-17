@@ -94,42 +94,27 @@ async def get_current_user(
 @app.post("/auth/register", status_code=201)
 @limiter.limit("3/minute")
 async def register(request: Request, body: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
-    existing = await crud.get_user_by_email(db, body.email)
-    if existing:
-        if existing.is_verified:
-            raise HTTPException(status_code=409, detail="Email already registered")
-        # Unverified — check cooldown, then update fields and resend fresh verify code
-        wait = await crud.check_and_update_code_cooldown(db, existing)
-        if wait > 0:
-            raise HTTPException(status_code=429, detail=f"Lütfen {wait} saniye bekleyip tekrar deneyin")
-        existing.password_hash = hash_password(body.password)
-        existing.first_name = body.first_name
-        existing.last_name = body.last_name
-        existing.username = body.username
-        existing.age = body.age
-        await db.commit()
-        code = generate_code()
-        await crud.create_verification_code(db, body.email, code, "verify", code_expiry())
-        try:
-            send_verification_email(body.email, code, first_name=body.first_name)
-        except Exception as e:
-            print(f"[email error] {e}")
-        return {"message": "Verification code sent to your email"}
-
-    if await crud.get_user_by_username(db, body.username):
+    # Only VERIFIED accounts reserve email/username — nothing is written to
+    # `users` until the code is confirmed (pending registration).
+    existing_email = await crud.get_user_by_email(db, body.email)
+    if existing_email:
+        raise HTTPException(status_code=409, detail="Email already registered")
+    existing_username = await crud.get_user_by_username(db, body.username)
+    if existing_username:
         raise HTTPException(status_code=409, detail="Username already taken")
 
-    pw_hash = hash_password(body.password)
-    new_user = await crud.create_user(
-        db, email=body.email, password_hash=pw_hash,
-        first_name=body.first_name, last_name=body.last_name,
-        username=body.username, age=body.age,
-    )
-
-    await crud.check_and_update_code_cooldown(db, new_user)
     code = generate_code()
-    await crud.create_verification_code(db, body.email, code, "verify", code_expiry())
-
+    await crud.upsert_pending_registration(
+        db,
+        email=body.email,
+        password_hash=hash_password(body.password),
+        first_name=body.first_name,
+        last_name=body.last_name,
+        username=body.username,
+        age=body.age,
+        code=code,
+        expires_at=code_expiry(),
+    )
     try:
         send_verification_email(body.email, code, first_name=body.first_name)
     except Exception as e:
@@ -141,15 +126,26 @@ async def register(request: Request, body: schemas.UserCreate, db: AsyncSession 
 @app.post("/auth/verify", response_model=schemas.TokenResponse)
 @limiter.limit("5/minute")
 async def verify_email(request: Request, body: schemas.VerifyRequest, db: AsyncSession = Depends(get_db)):
-    user = await crud.get_user_by_email(db, body.email)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    from datetime import datetime, timezone
+    pending = await crud.get_pending_registration(db, body.email)
+    if not pending:
+        raise HTTPException(status_code=404, detail="No pending registration for this email")
 
-    ok = await crud.verify_code(db, body.email, body.code, "verify")
-    if not ok:
+    expires = pending.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if pending.code != body.code or expires < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Invalid or expired code")
 
-    await crud.mark_user_verified(db, user)
+    # Guard against a race: someone else verified the same email/username first
+    if await crud.get_user_by_email(db, body.email):
+        await crud.delete_pending_registration(db, body.email)
+        raise HTTPException(status_code=409, detail="Email already registered")
+    if await crud.get_user_by_username(db, pending.username):
+        raise HTTPException(status_code=409, detail="Username already taken")
+
+    user = await crud.create_verified_user(db, pending)
+    await crud.delete_pending_registration(db, body.email)
     token = create_access_token(user.id, user.email, user.username)
     return {"access_token": token, "token_type": "bearer", "user": user}
 
@@ -169,20 +165,27 @@ async def login(request: Request, body: schemas.LoginRequest, db: AsyncSession =
 
 @app.post("/auth/resend")
 async def resend_verification(body: schemas.ResendRequest, db: AsyncSession = Depends(get_db)):
-    user = await crud.get_user_by_email(db, body.email)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if user.is_verified:
-        raise HTTPException(status_code=400, detail="Email already verified")
+    from datetime import datetime, timezone
+    pending = await crud.get_pending_registration(db, body.email)
+    if not pending:
+        raise HTTPException(status_code=404, detail="No pending registration for this email")
 
-    wait = await crud.check_and_update_code_cooldown(db, user)
-    if wait > 0:
-        raise HTTPException(status_code=429, detail=f"Lütfen {wait} saniye bekleyip tekrar deneyin")
+    last = pending.last_sent_at
+    if last and last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    if last and (datetime.now(timezone.utc) - last).total_seconds() < 30:
+        wait = 30 - int((datetime.now(timezone.utc) - last).total_seconds())
+        raise HTTPException(status_code=429, detail=f"Please wait {wait} seconds and try again")
 
     code = generate_code()
-    await crud.create_verification_code(db, body.email, code, "verify", code_expiry())
+    await crud.upsert_pending_registration(
+        db, email=pending.email, password_hash=pending.password_hash,
+        first_name=pending.first_name, last_name=pending.last_name,
+        username=pending.username, age=pending.age,
+        code=code, expires_at=code_expiry(),
+    )
     try:
-        send_verification_email(body.email, code, first_name=user.first_name)
+        send_verification_email(body.email, code, first_name=pending.first_name)
     except Exception as e:
         print(f"[email error] {e}")
     return {"message": "Verification code resent"}

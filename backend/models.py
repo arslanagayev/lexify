@@ -34,6 +34,25 @@ class User(Base):
         return bool(self.telegram_chat_id)
 
 
+class PendingRegistration(Base):
+    """Holds a signup until the email is verified — nothing is written to
+    `users` until the user enters the correct code."""
+    __tablename__ = "pending_registrations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    username: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    age: Mapped[Optional[int]] = mapped_column(Integer)
+    code: Mapped[str] = mapped_column(String(6), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class VerificationCode(Base):
     __tablename__ = "verification_codes"
 

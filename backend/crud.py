@@ -51,6 +51,63 @@ async def mark_user_verified(db: AsyncSession, user: User) -> User:
     return user
 
 
+# ── Pending registrations (verify-before-create) ──────────────
+
+async def get_pending_registration(db: AsyncSession, email: str):
+    from backend.models import PendingRegistration
+    result = await db.execute(
+        select(PendingRegistration).where(PendingRegistration.email == email.lower())
+    )
+    return result.scalar_one_or_none()
+
+
+async def upsert_pending_registration(db: AsyncSession, *, email, password_hash,
+                                      first_name, last_name, username, age,
+                                      code, expires_at) -> None:
+    from backend.models import PendingRegistration
+    now = datetime.now(timezone.utc)
+    existing = await get_pending_registration(db, email)
+    if existing:
+        existing.password_hash = password_hash
+        existing.first_name = first_name
+        existing.last_name = last_name
+        existing.username = username
+        existing.age = age
+        existing.code = code
+        existing.expires_at = expires_at
+        existing.last_sent_at = now
+    else:
+        db.add(PendingRegistration(
+            email=email.lower(), password_hash=password_hash,
+            first_name=first_name, last_name=last_name, username=username,
+            age=age, code=code, expires_at=expires_at, last_sent_at=now,
+        ))
+    await db.commit()
+
+
+async def delete_pending_registration(db: AsyncSession, email: str) -> None:
+    from backend.models import PendingRegistration
+    from sqlalchemy import delete as sql_delete
+    await db.execute(sql_delete(PendingRegistration).where(PendingRegistration.email == email.lower()))
+    await db.commit()
+
+
+async def create_verified_user(db: AsyncSession, pending) -> User:
+    user = User(
+        email=pending.email.lower(),
+        password_hash=pending.password_hash,
+        first_name=pending.first_name,
+        last_name=pending.last_name,
+        username=pending.username,
+        age=pending.age,
+        is_verified=1,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 async def update_user_password(db: AsyncSession, user: User, new_hash: str) -> None:
     user.password_hash = new_hash
     await db.commit()
