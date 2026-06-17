@@ -88,13 +88,6 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [showTour, setShowTour] = useState(false)
   const tourSeenRef = useRef(false)
 
-  useEffect(() => {
-    if (!loading && words.length === 0 && !tourSeenRef.current) {
-      tourSeenRef.current = true
-      setShowTour(true)
-    }
-  }, [loading, words.length])
-
   const createShareLink = useCallback(async () => {
     try {
       const res = await fetch(`${API}/lists/share`, {
@@ -121,6 +114,14 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [mode, setMode]           = useState('grid')
   const [streak, setStreak]       = useState(0)
   const [toasts, setToasts]       = useState([])
+
+  // Onboarding tour for new users (declared after `loading` to avoid TDZ)
+  useEffect(() => {
+    if (!loading && words.length === 0 && !tourSeenRef.current) {
+      tourSeenRef.current = true
+      setShowTour(true)
+    }
+  }, [loading, words.length])
 
   // Track how many WordCards are in edit mode (via callbacks)
   const editingCountRef = useRef(0)
