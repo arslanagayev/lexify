@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useLang } from '../i18n/LangContext'
 
 // Lightweight markdown renderer (bold, inline code, bullet/numbered lists).
 // Avoids a heavy dependency while still rendering the tutor's formatting.
@@ -63,6 +64,7 @@ const WELCOME = {
 }
 
 export default function FloatingChatWidget({ apiBase, token }) {
+  const { lang } = useLang()
   const [open, setOpen]       = useState(false)
   const [messages, setMessages] = useState([WELCOME])
   const [input, setInput]     = useState('')
@@ -98,7 +100,7 @@ export default function FloatingChatWidget({ apiBase, token }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, lang }),
       })
 
       if (!res.ok) {

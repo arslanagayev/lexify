@@ -28,7 +28,7 @@ export default function QuizMode({ words, token }) {
       setQuestion(await res.json())
     } catch {
       // fallback: build question from local words state
-      setQuestion(buildLocalQuestion(wordsWithMeaning))
+      setQuestion(buildLocalQuestion(wordsWithMeaning, t))
     } finally {
       setLoading(false)
     }
@@ -330,7 +330,7 @@ function FillBlankQuiz({ token, t }) {
   )
 }
 
-function buildLocalQuestion(words) {
+function buildLocalQuestion(words, t) {
   const correct = words[Math.floor(Math.random() * words.length)]
   const others = words.filter(w => w.id !== correct.id)
   const picks = others.sort(() => Math.random() - 0.5).slice(0, 3)
@@ -339,10 +339,10 @@ function buildLocalQuestion(words) {
   let options, question
   if (useReverse) {
     options = [{ text: correct.word, correct: true }, ...picks.map(w => ({ text: w.word, correct: false }))]
-    question = `Hangi kelime "${correct.chinese_meaning}" anlamına gelir?`
+    question = t.quizQReverse(correct.chinese_meaning)
   } else {
     options = [{ text: correct.chinese_meaning, correct: true }, ...picks.map(w => ({ text: w.chinese_meaning, correct: false }))]
-    question = `"${correct.word}" ne anlama gelir?`
+    question = t.quizQMeaning(correct.word)
   }
   options.sort(() => Math.random() - 0.5)
   return { word_id: correct.id, word: correct.word, question_type: useReverse ? 'reverse' : 'meaning', question, options }

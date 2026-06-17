@@ -59,9 +59,16 @@ def sanitize_history(messages: list) -> list[dict]:
     return history[-MAX_HISTORY:]
 
 
-async def chat_completion(history: list[dict]) -> str:
+_LANG_NAMES = {"en": "English", "tr": "Turkish", "ru": "Russian", "zh": "Chinese (Simplified)"}
+
+
+async def chat_completion(history: list[dict], lang: str = "en") -> str:
     client = _get_client()
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+    system = SYSTEM_PROMPT
+    lang_name = _LANG_NAMES.get(lang)
+    if lang_name:
+        system += f"\n\nAlways respond in {lang_name}, regardless of the language the user writes in."
+    messages = [{"role": "system", "content": system}] + history
     resp = await client.chat.completions.create(
         model="deepseek-chat",
         messages=messages,

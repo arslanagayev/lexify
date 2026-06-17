@@ -523,9 +523,16 @@ async def _cmd_pronounce(
     return None  # voice already sent, no text reply needed
 
 
-async def _vocab_question(question: str) -> str:
+_LANG_NAMES = {"en": "English", "tr": "Turkish", "ru": "Russian", "zh": "Chinese (Simplified)"}
+
+
+async def _vocab_question(question: str, lang: str = "en") -> str:
     if not DEEPSEEK_KEY:
         return "AI service not configured."
+    system = _SYSTEM_PROMPT
+    name = _LANG_NAMES.get(lang)
+    if name:
+        system += f"\n\nAlways respond in {name}, regardless of the language the user writes in."
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.post(
@@ -534,7 +541,7 @@ async def _vocab_question(question: str) -> str:
                 json={
                     "model": "deepseek-chat",
                     "messages": [
-                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {"role": "system", "content": system},
                         {"role": "user", "content": question},
                     ],
                     "max_tokens": 400,
@@ -577,7 +584,7 @@ async def _dispatch(client: httpx.AsyncClient, chat_id: str, text: str) -> Optio
     if cat == "PRONOUNCE":
         return await _cmd_pronounce(client, chat_id, text, lang)
     if cat == "VOCAB_QUESTION":
-        return await _vocab_question(text)
+        return await _vocab_question(text, lang)
     return _INVALID_REPLY.get(lang, _INVALID_REPLY["en"])
 
 # ── Polling loop ──────────────────────────────────────────────────────────────

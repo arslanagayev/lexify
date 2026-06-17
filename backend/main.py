@@ -291,7 +291,7 @@ async def chat(
     if not history or history[-1]["role"] != "user":
         raise HTTPException(status_code=422, detail="Last message must be from the user")
     try:
-        reply = await chat_completion(history)
+        reply = await chat_completion(history, lang=body.lang)
     except Exception as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(

@@ -11,7 +11,7 @@ export const LANG_OPTIONS = [
 ]
 
 export function LangProvider({ children }) {
-  const [lang, setLang] = useState('tr')
+  const [lang, setLang] = useState('en')
   return (
     <LangContext.Provider value={{ lang, setLang, t: translations[lang] }}>
       {children}

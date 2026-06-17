@@ -384,7 +384,7 @@ function SetupView({ t, generating, codeData, timeLeft, copied, error, onGenerat
       {codeData && timeLeft > 0 ? (
         <div className="space-y-4">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center space-y-3">
-            <p className="text-xs text-white/40 uppercase tracking-wider">Telegram'da şunu yaz</p>
+            <p className="text-xs text-white/40 uppercase tracking-wider">{t.telegramWriteThis}</p>
             <div className="flex items-center justify-center gap-3">
               <span className="text-2xl font-mono font-bold text-white tracking-[0.3em]">
                 /link {codeData.code}
@@ -416,17 +416,13 @@ function SetupView({ t, generating, codeData, timeLeft, copied, error, onGenerat
       ) : (
         <div className="space-y-3">
           <div className="space-y-2">
-            {[
-              '1. Aşağıdaki butona tıkla → 6 haneli kod üret',
-              '2. Telegram\'da @LexifyAssistantBot\'a yaz: /link KOD',
-              '3. Hesabın bağlanır, komutları kullanabilirsin',
-            ].map((step, i) => (
+            {[t.telegramStep1, t.telegramStep2, t.telegramStep3].map((step, i) => (
               <div key={i} className="flex items-start gap-3 text-sm text-white/50">
                 <span className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30
                                  flex items-center justify-center text-violet-300 text-xs font-bold shrink-0 mt-0.5">
                   {i + 1}
                 </span>
-                <span>{step.replace(/^\d+\.\s*/, '')}</span>
+                <span>{step}</span>
               </div>
             ))}
           </div>

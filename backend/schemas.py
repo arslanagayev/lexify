@@ -260,6 +260,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
+    lang: str = "en"
 
 
 class PracticeRequest(BaseModel):
