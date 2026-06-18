@@ -279,12 +279,20 @@ git pull
 pip install -r requirements.txt
 
 # Reinstall frontend dependencies if package.json changed
-cd frontend && npm install && cd ..
+cd frontend && npm install
+
+# IMPORTANT: rebuild the frontend so UI changes ship.
+# dist/ is gitignored, so `git pull` never updates the served bundle —
+# without this step the site keeps serving the OLD build.
+npm run build && cd ..
 
 # Restart both servers
 ```
 
-Database migrations are handled automatically by SQLAlchemy's `create_all` on startup — new tables are created, existing data is preserved.
+Database migrations are handled automatically on startup: SQLAlchemy's
+`create_all` creates any new tables, and a lightweight `ALTER TABLE` pass adds
+any new columns (e.g. `courses.level`) to existing tables. Existing data is
+always preserved.
 
 ---
 
