@@ -255,11 +255,14 @@ async def get_words(db: AsyncSession, q: Optional[str] = None,
                     user_id: Optional[int] = None,
                     status: Optional[str] = None,
                     search: Optional[str] = None,
-                    sort: Optional[str] = None) -> list:
+                    sort: Optional[str] = None,
+                    course_id: Optional[int] = None) -> list:
     order = _SORT_ORDERS.get(sort or "newest", _SORT_ORDERS["newest"])()
     stmt = select(Word).order_by(order)
     if user_id is not None:
         stmt = stmt.where(Word.user_id == user_id)
+    if course_id is not None:
+        stmt = stmt.where(Word.course_id == course_id)
     term = q or search
     if term:
         stmt = stmt.where(Word.word.ilike(f"%{term}%"))
@@ -270,10 +273,13 @@ async def get_words(db: AsyncSession, q: Optional[str] = None,
 
 
 async def get_word_by_text(db: AsyncSession, word: str,
-                           user_id: Optional[int] = None) -> Optional[Word]:
+                           user_id: Optional[int] = None,
+                           course_id: Optional[int] = None) -> Optional[Word]:
     stmt = select(Word).where(Word.word.ilike(word.lower().strip()))
     if user_id is not None:
         stmt = stmt.where(Word.user_id == user_id)
+    if course_id is not None:
+        stmt = stmt.where(Word.course_id == course_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -287,11 +293,14 @@ async def get_word(db: AsyncSession, word_id: int,
     return result.scalar_one_or_none()
 
 
-async def create_word(db: AsyncSession, data: dict, user_id: Optional[int] = None) -> Word:
+async def create_word(db: AsyncSession, data: dict, user_id: Optional[int] = None,
+                      course_id: Optional[int] = None) -> Word:
     allowed = {c.key for c in Word.__table__.columns}
     word = Word(**{k: v for k, v in data.items() if k in allowed})
     if user_id is not None:
         word.user_id = user_id
+    if course_id is not None:
+        word.course_id = course_id
     db.add(word)
     await db.commit()
     await db.refresh(word)
@@ -425,12 +434,14 @@ async def get_review_log(db: AsyncSession, limit: int = 20,
     return list(result.scalars().all())
 
 
-async def get_stats(db: AsyncSession, user_id: Optional[int] = None) -> dict:
+async def get_stats(db: AsyncSession, user_id: Optional[int] = None, course_id: Optional[int] = None) -> dict:
     today_str = date.today().isoformat()
 
     def _where(stmt):
         if user_id is not None:
-            return stmt.where(Word.user_id == user_id)
+            stmt = stmt.where(Word.user_id == user_id)
+        if course_id is not None:
+            stmt = stmt.where(Word.course_id == course_id)
         return stmt
 
     total = (await db.execute(_where(select(func.count(Word.id))))).scalar() or 0
@@ -493,8 +504,11 @@ async def _review_streak(db: AsyncSession, user_id: int) -> int:
     return streak
 
 
-async def get_stats_overview(db: AsyncSession, user_id: int) -> dict:
-    result = await db.execute(select(Word).where(Word.user_id == user_id))
+async def get_stats_overview(db: AsyncSession, user_id: int, course_id: Optional[int] = None) -> dict:
+    stmt = select(Word).where(Word.user_id == user_id)
+    if course_id is not None:
+        stmt = stmt.where(Word.course_id == course_id)
+    result = await db.execute(stmt)
     words = list(result.scalars().all())
 
     total = len(words)
@@ -551,8 +565,11 @@ async def get_stats_overview(db: AsyncSession, user_id: int) -> dict:
     }
 
 
-async def learning_insights(db: AsyncSession, user_id: int) -> dict:
-    result = await db.execute(select(Word).where(Word.user_id == user_id))
+async def learning_insights(db: AsyncSession, user_id: int, course_id: Optional[int] = None) -> dict:
+    stmt = select(Word).where(Word.user_id == user_id)
+    if course_id is not None:
+        stmt = stmt.where(Word.course_id == course_id)
+    result = await db.execute(stmt)
     words = list(result.scalars().all())
     buckets: dict[str, dict] = {}
     for w in words:
@@ -617,12 +634,13 @@ async def weekly_summary(db: AsyncSession, user_id: int) -> dict:
     }
 
 
-async def review_calendar(db: AsyncSession, user_id: int) -> dict:
+async def review_calendar(db: AsyncSession, user_id: int, course_id: Optional[int] = None) -> dict:
     today = date.today()
     # Future/overdue: bucket by next_review date (overdue rolls up to today)
-    result = await db.execute(
-        select(Word.next_review).where(Word.user_id == user_id).where(Word.next_review.isnot(None))
-    )
+    nr_stmt = select(Word.next_review).where(Word.user_id == user_id).where(Word.next_review.isnot(None))
+    if course_id is not None:
+        nr_stmt = nr_stmt.where(Word.course_id == course_id)
+    result = await db.execute(nr_stmt)
     due: dict[str, int] = {}
     for (nr,) in result.all():
         if not nr:
@@ -651,7 +669,8 @@ _SHARE_FIELDS = ["word", "phonetic", "part_of_speech", "chinese_meaning", "chine
 async def create_shared_list(db: AsyncSession, user: User, title: str) -> str:
     import json as _json, secrets
     from backend.models import SharedList
-    words = await get_words(db, user_id=user.id)
+    cid = await ensure_active_course(db, user)
+    words = await get_words(db, user_id=user.id, course_id=cid)
     snapshot = [{f: getattr(w, f) for f in _SHARE_FIELDS} for w in words]
     code = secrets.token_urlsafe(6)[:10]
     db.add(SharedList(
@@ -688,6 +707,7 @@ async def import_shared_list(db: AsyncSession, user: User, code: str) -> Optiona
         return None
     if sl.owner_id == user.id:
         return {"error": "own"}
+    cid = await ensure_active_course(db, user)
     try:
         words = _json.loads(sl.words_json)
     except Exception:
@@ -697,11 +717,11 @@ async def import_shared_list(db: AsyncSession, user: User, code: str) -> Optiona
         w = (data.get("word") or "").strip()
         if not w:
             continue
-        if await get_word_by_text(db, w, user_id=user.id):
+        if await get_word_by_text(db, w, user_id=user.id, course_id=cid):
             skipped += 1
             continue
         clean = {k: v for k, v in data.items() if k in _SHARE_FIELDS}
-        await create_word(db, clean, user_id=user.id)
+        await create_word(db, clean, user_id=user.id, course_id=cid)
         imported += 1
     return {"imported": imported, "skipped": skipped}
 
@@ -922,6 +942,89 @@ async def set_user_language(db: AsyncSession, user: User, language: str) -> None
     await db.commit()
 
 
+# ── Courses ───────────────────────────────────────────────────
+
+async def list_courses(db: AsyncSession, user_id: int) -> list[dict]:
+    from backend.models import Course
+    rows = await db.execute(select(Course).where(Course.user_id == user_id).order_by(Course.created_at.asc()))
+    courses = list(rows.scalars().all())
+    out = []
+    for c in courses:
+        n = (await db.execute(
+            select(func.count(Word.id)).where(Word.user_id == user_id, Word.course_id == c.id)
+        )).scalar() or 0
+        out.append({
+            "id": c.id, "base_language": c.base_language, "target_language": c.target_language,
+            "word_count": n,
+        })
+    return out
+
+
+async def get_course(db: AsyncSession, user_id: int, course_id: int):
+    from backend.models import Course
+    r = await db.execute(select(Course).where(Course.id == course_id, Course.user_id == user_id))
+    return r.scalar_one_or_none()
+
+
+async def create_course(db: AsyncSession, user_id: int, base: str, target: str):
+    from backend.models import Course
+    existing = await db.execute(
+        select(Course).where(Course.user_id == user_id,
+                             Course.base_language == base, Course.target_language == target)
+    )
+    if existing.scalar_one_or_none():
+        return None  # duplicate
+    c = Course(user_id=user_id, base_language=base, target_language=target)
+    db.add(c)
+    await db.commit()
+    await db.refresh(c)
+    return c
+
+
+async def activate_course(db: AsyncSession, user: User, course_id: int) -> bool:
+    c = await get_course(db, user.id, course_id)
+    if not c:
+        return False
+    user.active_course_id = course_id
+    await db.commit()
+    return True
+
+
+async def delete_course(db: AsyncSession, user: User, course_id: int) -> bool:
+    from backend.models import Course
+    from sqlalchemy import delete as sql_delete
+    c = await get_course(db, user.id, course_id)
+    if not c:
+        return False
+    await db.execute(sql_delete(Word).where(Word.user_id == user.id, Word.course_id == course_id))
+    await db.execute(sql_delete(Course).where(Course.id == course_id, Course.user_id == user.id))
+    if user.active_course_id == course_id:
+        # fall back to any remaining course
+        remaining = await db.execute(
+            select(Course.id).where(Course.user_id == user.id).order_by(Course.created_at.asc()).limit(1)
+        )
+        user.active_course_id = remaining.scalar_one_or_none()
+    await db.commit()
+    return True
+
+
+async def ensure_active_course(db: AsyncSession, user: User) -> Optional[int]:
+    """Return the user's active course id, creating/selecting one if needed."""
+    from backend.models import Course
+    if user.active_course_id:
+        c = await get_course(db, user.id, user.active_course_id)
+        if c:
+            return user.active_course_id
+    # pick first existing or create default zh->en
+    r = await db.execute(select(Course).where(Course.user_id == user.id).order_by(Course.created_at.asc()).limit(1))
+    c = r.scalar_one_or_none()
+    if not c:
+        c = await create_course(db, user.id, "zh", "en")
+    user.active_course_id = c.id
+    await db.commit()
+    return c.id
+
+
 async def get_user_by_telegram_chat_id(db: AsyncSession, chat_id: str) -> Optional[User]:
     result = await db.execute(select(User).where(User.telegram_chat_id == chat_id))
     return result.scalar_one_or_none()
@@ -946,13 +1049,16 @@ async def get_linked_users(db: AsyncSession) -> list[User]:
     return list(result.scalars().all())
 
 
-async def get_random_unmastered_word(db: AsyncSession, user_id: int) -> Optional[Word]:
-    result = await db.execute(
-        select(Word).where(Word.user_id == user_id).where(Word.mastery_status != "mastered")
-    )
+async def get_random_unmastered_word(db: AsyncSession, user_id: int, course_id: Optional[int] = None) -> Optional[Word]:
+    def _scope(stmt):
+        stmt = stmt.where(Word.user_id == user_id)
+        if course_id is not None:
+            stmt = stmt.where(Word.course_id == course_id)
+        return stmt
+    result = await db.execute(_scope(select(Word)).where(Word.mastery_status != "mastered"))
     words = list(result.scalars().all())
     if not words:
-        result = await db.execute(select(Word).where(Word.user_id == user_id))
+        result = await db.execute(_scope(select(Word)))
         words = list(result.scalars().all())
     return random.choice(words) if words else None
 
@@ -1018,7 +1124,8 @@ async def suggest_cefr_words(db: AsyncSession, user_id: int, limit: int = 10) ->
 
 
 async def get_due_review_words(
-    db: AsyncSession, user_id: int, limit: int = 10, include_mastered: bool = False
+    db: AsyncSession, user_id: int, limit: int = 10, include_mastered: bool = False,
+    course_id: Optional[int] = None
 ) -> list:
     now = datetime.now(timezone.utc)
     stmt = (
@@ -1026,6 +1133,8 @@ async def get_due_review_words(
         .where(Word.user_id == user_id)
         .where(or_(Word.next_review <= now, Word.next_review.is_(None)))
     )
+    if course_id is not None:
+        stmt = stmt.where(Word.course_id == course_id)
     if not include_mastered:
         stmt = stmt.where(Word.mastery_status != "mastered")
     stmt = stmt.order_by(Word.next_review.asc().nullsfirst()).limit(limit)
@@ -1067,7 +1176,8 @@ async def export_words(db: AsyncSession, user_id: Optional[int] = None) -> list[
 
 
 async def import_words(db: AsyncSession, words_data: list[dict],
-                       user_id: Optional[int] = None) -> dict:
+                       user_id: Optional[int] = None,
+                       course_id: Optional[int] = None) -> dict:
     imported = 0
     skipped = 0
     for data in words_data:
@@ -1078,14 +1188,16 @@ async def import_words(db: AsyncSession, words_data: list[dict],
         stmt = select(Word).where(Word.word.ilike(word_str))
         if user_id is not None:
             stmt = stmt.where(Word.user_id == user_id)
+        if course_id is not None:
+            stmt = stmt.where(Word.course_id == course_id)
         existing = await db.execute(stmt)
         if existing.scalar_one_or_none():
             skipped += 1
             continue
         allowed = {c.key for c in Word.__table__.columns
-                   if c.key not in ("id", "created_at", "ease_factor", "user_id")}
+                   if c.key not in ("id", "created_at", "ease_factor", "user_id", "course_id")}
         clean = {k: v for k, v in data.items() if k in allowed and v is not None}
-        db.add(Word(**clean, user_id=user_id))
+        db.add(Word(**clean, user_id=user_id, course_id=course_id))
         imported += 1
     if imported:
         await db.commit()
@@ -1095,8 +1207,8 @@ async def import_words(db: AsyncSession, words_data: list[dict],
 # ── Quiz ──────────────────────────────────────────────────────
 
 async def get_quiz_question(db: AsyncSession, user_id: Optional[int] = None,
-                            lang: str = "en") -> Optional[dict]:
-    words = await get_words(db, user_id=user_id)
+                            lang: str = "en", course_id: Optional[int] = None) -> Optional[dict]:
+    words = await get_words(db, user_id=user_id, course_id=course_id)
     words_with_meaning = [w for w in words if w.chinese_meaning]
     if len(words_with_meaning) < 2:
         return None
@@ -1139,9 +1251,9 @@ async def get_quiz_question(db: AsyncSession, user_id: Optional[int] = None,
     }
 
 
-async def get_fill_blank(db: AsyncSession, user_id: int) -> Optional[dict]:
+async def get_fill_blank(db: AsyncSession, user_id: int, course_id: Optional[int] = None) -> Optional[dict]:
     """Pick a non-mastered word whose example sentence contains it; blank it out."""
-    words = await get_words(db, user_id=user_id)
+    words = await get_words(db, user_id=user_id, course_id=course_id)
     import re as _re
 
     def _blank(w):

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useLang, LANG_OPTIONS } from '../i18n/LangContext'
 import { useAuth } from '../context/AuthContext'
+import { langFlag } from '../utils/languages'
 import logoSrc from '../assets/logo.png'
 
-export default function Header({ mode, onModeChange, count, streak, onLogout, onOpenAchievements, theme, onToggleTheme }) {
+export default function Header({ mode, onModeChange, count, streak, onLogout, onOpenAchievements, theme, onToggleTheme, activeCourse, onOpenCourses }) {
   const { lang, setLang, t } = useLang()
   const { user } = useAuth()
 
@@ -52,6 +53,17 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
             ))}
           </div>
 
+          {/* Active course indicator */}
+          {activeCourse?.base_language && (
+            <button
+              onClick={onOpenCourses}
+              title="Courses"
+              className="glass rounded-xl px-2.5 py-1.5 text-sm leading-none hover:bg-white/8 transition-colors"
+            >
+              {langFlag(activeCourse.base_language)}<span className="text-white/30 mx-0.5">→</span>{langFlag(activeCourse.target_language)}
+            </button>
+          )}
+
           {/* Theme toggle */}
           <button
             onClick={onToggleTheme}
@@ -74,14 +86,14 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
           <LangSelector lang={lang} setLang={setLang} />
 
           {/* User menu */}
-          {user && <UserMenu user={user} onLogout={onLogout} onOpenSettings={() => onModeChange('settings')} />}
+          {user && <UserMenu user={user} onLogout={onLogout} onOpenSettings={() => onModeChange('settings')} onOpenCourses={onOpenCourses} />}
         </div>
       </div>
     </header>
   )
 }
 
-function UserMenu({ user, onLogout, onOpenSettings }) {
+function UserMenu({ user, onLogout, onOpenSettings, onOpenCourses }) {
   const [open, setOpen] = useState(false)
   const { t } = useLang()
 
@@ -108,6 +120,13 @@ function UserMenu({ user, onLogout, onOpenSettings }) {
               <p className="text-white/80 text-sm font-semibold">{user.first_name} {user.last_name}</p>
               <p className="text-white/30 text-xs">@{user.username}</p>
             </div>
+            <button
+              onClick={() => { setOpen(false); onOpenCourses?.() }}
+              className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm text-white/55 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <span className="w-4 h-4 flex items-center justify-center text-[13px]">📚</span>
+              {t.courses}
+            </button>
             <button
               onClick={() => { setOpen(false); onOpenSettings() }}
               className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm text-white/55 hover:text-white hover:bg-white/5 transition-colors"

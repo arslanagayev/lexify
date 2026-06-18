@@ -462,7 +462,80 @@ async def review_calendar(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await crud.review_calendar(db, current_user.id)
+    cid = await crud.ensure_active_course(db, current_user)
+    return await crud.review_calendar(db, current_user.id, course_id=cid)
+
+
+# ── Courses ───────────────────────────────────────────────────
+
+@app.get("/languages")
+async def list_languages():
+    from backend.languages import LANGUAGES
+    return {"languages": LANGUAGES}
+
+
+@app.get("/courses")
+async def get_courses(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await crud.ensure_active_course(db, current_user)
+    courses = await crud.list_courses(db, current_user.id)
+    return {"courses": courses, "active_course_id": current_user.active_course_id}
+
+
+@app.get("/courses/active")
+async def get_active_course(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    cid = await crud.ensure_active_course(db, current_user)
+    c = await crud.get_course(db, current_user.id, cid)
+    if not c:
+        return {"active_course_id": None}
+    return {"id": c.id, "base_language": c.base_language, "target_language": c.target_language}
+
+
+@app.post("/courses")
+async def create_course(
+    body: schemas.CourseCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from backend.languages import VALID_LANGS
+    base, target = body.base_language, body.target_language
+    if base not in VALID_LANGS or target not in VALID_LANGS:
+        raise HTTPException(status_code=400, detail="Invalid language")
+    if base == target:
+        raise HTTPException(status_code=400, detail="Base and target must differ")
+    c = await crud.create_course(db, current_user.id, base, target)
+    if c is None:
+        raise HTTPException(status_code=409, detail="You already have this course")
+    await crud.activate_course(db, current_user, c.id)
+    return {"id": c.id, "base_language": c.base_language, "target_language": c.target_language}
+
+
+@app.post("/courses/{course_id}/activate")
+async def activate_course(
+    course_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ok = await crud.activate_course(db, current_user, course_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Course not found")
+    return {"active_course_id": course_id}
+
+
+@app.delete("/courses/{course_id}", status_code=204)
+async def remove_course(
+    course_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ok = await crud.delete_course(db, current_user, course_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Course not found")
 
 
 # ── Stats ─────────────────────────────────────────────────────
@@ -472,7 +545,8 @@ async def stats_overview(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await crud.get_stats_overview(db, current_user.id)
+    cid = await crud.ensure_active_course(db, current_user)
+    return await crud.get_stats_overview(db, current_user.id, course_id=cid)
 
 
 @app.get("/stats/insights")
@@ -480,7 +554,8 @@ async def stats_insights(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await crud.learning_insights(db, current_user.id)
+    cid = await crud.ensure_active_course(db, current_user)
+    return await crud.learning_insights(db, current_user.id, course_id=cid)
 
 
 @app.get("/stats/word/{word_id}")
@@ -506,7 +581,8 @@ async def list_words(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await crud.get_words(db, q=q, user_id=current_user.id, status=status, search=search, sort=sort)
+    cid = await crud.ensure_active_course(db, current_user)
+    return await crud.get_words(db, q=q, user_id=current_user.id, status=status, search=search, sort=sort, course_id=cid)
 
 
 _WORD_RE = re.compile(r"^[\w\s\-''À-ÿ]+$", re.UNICODE)
@@ -525,19 +601,24 @@ async def add_word(
     if not _WORD_RE.match(word_str):
         raise HTTPException(status_code=422, detail="Kelime geçersiz karakter içeriyor")
 
-    duplicate = await crud.get_word_by_text(db, word_str, user_id=current_user.id)
+    cid = await crud.ensure_active_course(db, current_user)
+    course = await crud.get_course(db, current_user.id, cid)
+    base_lang = course.base_language if course else "zh"
+    target_lang = course.target_language if course else "en"
+
+    duplicate = await crud.get_word_by_text(db, word_str, user_id=current_user.id, course_id=cid)
     if duplicate:
         raise HTTPException(status_code=409, detail={"message": "Bu kelime zaten listenizde", "id": duplicate.id})
 
     try:
-        data = await enrich_word(word_str)
+        data = await enrich_word(word_str, base_lang=base_lang, target_lang=target_lang)
     except AIServiceLimitedError as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(
             status_code=503,
             detail={"error_code": "ai_service_limited", "message": str(e)},
         )
-    word = await crud.create_word(db, data, user_id=current_user.id)
+    word = await crud.create_word(db, data, user_id=current_user.id, course_id=cid)
     await crud.log_activity(db)
     return word
 
@@ -770,7 +851,8 @@ async def get_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await crud.get_stats(db, user_id=current_user.id)
+    cid = await crud.ensure_active_course(db, current_user)
+    return await crud.get_stats(db, user_id=current_user.id, course_id=cid)
 
 
 # ── Streak ────────────────────────────────────────────────────
@@ -811,7 +893,8 @@ async def import_words(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await crud.import_words(db, body, user_id=current_user.id)
+    cid = await crud.ensure_active_course(db, current_user)
+    return await crud.import_words(db, body, user_id=current_user.id, course_id=cid)
 
 
 @app.get("/words/suggest")
@@ -841,6 +924,11 @@ async def import_words_file(
     if not rows:
         raise HTTPException(status_code=422, detail="No words found. Expected a 'word' column.")
 
+    cid = await crud.ensure_active_course(db, current_user)
+    course = await crud.get_course(db, current_user.id, cid)
+    base_lang = course.base_language if course else "zh"
+    target_lang = course.target_language if course else "en"
+
     imported, skipped, errors = 0, 0, []
 
     async def _one(row: dict):
@@ -849,18 +937,18 @@ async def import_words_file(
         if not word_str or len(word_str) > 50 or not _WORD_RE.match(word_str):
             errors.append(f"{word_str[:30]}: invalid")
             return
-        existing = await crud.get_word_by_text(db, word_str, user_id=current_user.id)
+        existing = await crud.get_word_by_text(db, word_str, user_id=current_user.id, course_id=cid)
         if existing:
             skipped += 1
             return
         try:
-            data = await enrich_word(word_str)
+            data = await enrich_word(word_str, base_lang=base_lang, target_lang=target_lang)
         except Exception:
             errors.append(f"{word_str}: enrichment failed")
             return
         if row.get("notes"):
             data["tags"] = ((data.get("tags") or "") + "," + row["notes"]).strip(",")
-        await crud.create_word(db, data, user_id=current_user.id)
+        await crud.create_word(db, data, user_id=current_user.id, course_id=cid)
         imported += 1
 
     # Enrich a few at a time to bound wall-clock without hammering the AI API
@@ -882,7 +970,8 @@ async def quiz_question(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    q = await crud.get_quiz_question(db, user_id=current_user.id)
+    cid = await crud.ensure_active_course(db, current_user)
+    q = await crud.get_quiz_question(db, user_id=current_user.id, course_id=cid)
     if q is None:
         raise HTTPException(status_code=422, detail="Need at least 2 words with meanings for quiz")
     return q
@@ -893,7 +982,8 @@ async def quiz_fill_blank(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    q = await crud.get_fill_blank(db, user_id=current_user.id)
+    cid = await crud.ensure_active_course(db, current_user)
+    q = await crud.get_fill_blank(db, user_id=current_user.id, course_id=cid)
     if q is None:
         raise HTTPException(status_code=422, detail="Need words with example sentences for this quiz")
     return q
@@ -974,15 +1064,19 @@ async def telegram_add_word(body: schemas.TelegramWordRequest, db: AsyncSession 
     user = await crud.get_user_by_telegram_chat_id(db, body.telegram_chat_id)
     if not user:
         raise HTTPException(status_code=404, detail="not_linked")
+    cid = await crud.ensure_active_course(db, user)
+    course = await crud.get_course(db, user.id, cid)
+    base_lang = course.base_language if course else "zh"
+    target_lang = course.target_language if course else "en"
     try:
-        data = await enrich_word(body.word.strip())
+        data = await enrich_word(body.word.strip(), base_lang=base_lang, target_lang=target_lang)
     except AIServiceLimitedError as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(
             status_code=503,
             detail={"error_code": "ai_service_limited", "message": str(e)},
         )
-    word = await crud.create_word(db, data, user_id=user.id)
+    word = await crud.create_word(db, data, user_id=user.id, course_id=cid)
     await crud.log_activity(db)
     return word
 
@@ -1005,7 +1099,8 @@ async def telegram_review(
     user = await crud.get_user_by_telegram_chat_id(db, chat_id)
     if not user:
         raise HTTPException(status_code=404, detail=tg_t("not_linked", lang))
-    words = await crud.get_due_review_words(db, user.id, include_mastered=include_mastered)
+    cid = await crud.ensure_active_course(db, user)
+    words = await crud.get_due_review_words(db, user.id, include_mastered=include_mastered, course_id=cid)
     if not words:
         return {"empty": True, "message": tg_t("review_empty", lang), "words": []}
     return {
@@ -1028,7 +1123,8 @@ async def telegram_quiz(
     user = await crud.get_user_by_telegram_chat_id(db, chat_id)
     if not user:
         raise HTTPException(status_code=404, detail=tg_t("not_linked", lang))
-    q = await crud.get_quiz_question(db, user_id=user.id, lang=lang)
+    cid = await crud.ensure_active_course(db, user)
+    q = await crud.get_quiz_question(db, user_id=user.id, lang=lang, course_id=cid)
     if q is None:
         raise HTTPException(status_code=422, detail=tg_t("quiz_not_enough", lang))
     return q
@@ -1109,7 +1205,8 @@ async def telegram_send_daily(
             chat_id = user.telegram_chat_id
             if not chat_id or not await crud.get_daily_notification(db, chat_id):
                 continue
-            word = await crud.get_random_unmastered_word(db, user.id)
+            cid = await crud.ensure_active_course(db, user)
+            word = await crud.get_random_unmastered_word(db, user.id, course_id=cid)
             if not word:
                 continue
             lang = await crud.get_telegram_language(db, chat_id)

@@ -6,6 +6,7 @@ import ErrorBoundary from './ErrorBoundary'
 import WordFamily from './WordFamily'
 import ConversationModal from './ConversationModal'
 import MnemonicTip from './MnemonicTip'
+import { TTS_LOCALE } from '../utils/languages'
 
 const POS_STYLE = {
   noun:        'bg-sky-500/15 text-sky-300 border-sky-500/25',
@@ -18,7 +19,9 @@ const POS_STYLE = {
 }
 const POS_DEFAULT = 'bg-white/8 text-white/40 border-white/15'
 
-export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, token, apiBase, ownedWords, onAddWord, style }) {
+export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, token, apiBase, ownedWords, onAddWord, targetLang = 'en', baseLang = 'zh', style }) {
+  const targetLocale = TTS_LOCALE[targetLang] || 'en-US'
+  const baseLocale = TTS_LOCALE[baseLang] || 'zh-CN'
   const { t } = useLang()
   const [editing, setEditing]   = useState(false)
   const [saving, setSaving]     = useState(false)
@@ -171,7 +174,7 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
           <h2 className="text-2xl font-bold text-white tracking-tight break-words">{w.word}</h2>
           <SpeakBtn
             active={speaking === 'word'}
-            onClick={() => handleSpeak(w.word, 'en-US', 'word')}
+            onClick={() => handleSpeak(w.word, targetLocale, 'word')}
             compact title={t.pronounce}
           />
         </div>
@@ -187,7 +190,7 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
             <p className="text-[10px] uppercase tracking-widest text-white/25">{t.meaning}</p>
             <SpeakBtn
               active={speaking === 'meaning'}
-              onClick={() => handleSpeak(w.chinese_meaning, 'zh-CN', 'meaning')}
+              onClick={() => handleSpeak(w.chinese_meaning, baseLocale, 'meaning')}
               label="zh-CN"
             />
           </div>
@@ -205,7 +208,7 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
             <p className="text-[10px] uppercase tracking-widest text-white/25">{t.example}</p>
             <SpeakBtn
               active={speaking === 'en'}
-              onClick={() => handleSpeak(w.example_sentence, 'en-US', 'en')}
+              onClick={() => handleSpeak(w.example_sentence, targetLocale, 'en')}
               label="en-US"
             />
           </div>
@@ -216,7 +219,7 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
               <p className="text-white/35 text-sm leading-relaxed">{w.chinese_translation}</p>
               <SpeakBtn
                 active={speaking === 'zh'}
-                onClick={() => handleSpeak(w.chinese_translation, 'zh-CN', 'zh')}
+                onClick={() => handleSpeak(w.chinese_translation, baseLocale, 'zh')}
                 label="zh-CN"
                 className="mt-0.5"
               />

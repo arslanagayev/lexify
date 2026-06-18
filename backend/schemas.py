@@ -298,6 +298,11 @@ class LanguageRequest(BaseModel):
     lang: str
 
 
+class CourseCreate(BaseModel):
+    base_language: str
+    target_language: str
+
+
 class ShareListRequest(BaseModel):
     title: str = ""
 

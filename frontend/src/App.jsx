@@ -21,6 +21,8 @@ import DiscoverPanel from './components/DiscoverPanel'
 import AdminPanel from './components/AdminPanel'
 import OnboardingTour from './components/OnboardingTour'
 import ImportListModal from './components/ImportListModal'
+import CoursesPage from './components/CoursesPage'
+import { langFlag } from './utils/languages'
 import StoryGeneratorModal from './components/StoryGeneratorModal'
 import { exportWordsPdf } from './utils/exportPdf'
 import WordMapModal from './components/WordMapModal'
@@ -123,6 +125,14 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [shareData, setShareData] = useState(null)   // { code, url }
   const [showImportList, setShowImportList] = useState(false)
   const [showStory, setShowStory] = useState(false)
+  const [activeCourse, setActiveCourse] = useState(null)
+
+  const fetchActiveCourse = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/courses/active`, { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) setActiveCourse(await res.json())
+    } catch { /* ignore */ }
+  }, [token])
   const [showTour, setShowTour] = useState(false)
   const tourSeenRef = useRef(false)
 
@@ -238,7 +248,15 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
     fetchWords()
     fetchStreak()
     checkAchievements()
-  }, [fetchWords, fetchStreak, checkAchievements])
+    fetchActiveCourse()
+  }, [fetchWords, fetchStreak, checkAchievements, fetchActiveCourse])
+
+  const handleCourseChange = useCallback(() => {
+    fetchWords()
+    fetchStreak()
+    fetchActiveCourse()
+    setMode('grid')
+  }, [fetchWords, fetchStreak, fetchActiveCourse])
 
   // Polyglot achievement: all 4 interface languages used this session
   useEffect(() => {
@@ -403,6 +421,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
         onOpenAchievements={() => setShowAchievements(true)}
         theme={theme}
         onToggleTheme={() => setTheme(th => th === 'dark' ? 'light' : 'dark')}
+        activeCourse={activeCourse}
+        onOpenCourses={() => setMode('courses')}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
@@ -413,6 +433,10 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
         ) : mode === 'admin' ? (
           <ErrorBoundary silent>
             <AdminPanel apiBase={API} token={token} />
+          </ErrorBoundary>
+        ) : mode === 'courses' ? (
+          <ErrorBoundary silent>
+            <CoursesPage apiBase={API} token={token} onCourseChange={handleCourseChange} />
           </ErrorBoundary>
         ) : (
           <>
@@ -519,6 +543,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                   apiBase={API}
                   ownedWords={ownedWords}
                   onAddWord={handleAdd}
+                  targetLang={activeCourse?.target_language || 'en'}
+                  baseLang={activeCourse?.base_language || 'zh'}
                 />
                   </>
                 )}

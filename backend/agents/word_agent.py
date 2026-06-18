@@ -329,9 +329,15 @@ async def _search_example(
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """\
-You are a professional English vocabulary assistant.
-When given an English word or phrase, you return a JSON object with vocabulary information.
+You are a professional vocabulary assistant for language learners.
+You return a JSON object with vocabulary information.
 Always respond with valid JSON only — no markdown, no explanation."""
+
+_LANG_NAMES = {
+    "en": "English", "zh": "Chinese", "es": "Spanish", "hi": "Hindi", "ar": "Arabic",
+    "fr": "French", "ru": "Russian", "pt": "Portuguese", "de": "German", "ja": "Japanese",
+    "ko": "Korean", "tr": "Turkish", "it": "Italian", "nl": "Dutch", "pl": "Polish", "vi": "Vietnamese",
+}
 
 _JSON_SCHEMA = (
     "{\n"
@@ -353,32 +359,51 @@ _JSON_SCHEMA = (
 )
 
 
-def _build_prompt(word: str, sentence: Optional[str]) -> str:
+def _dynamic_schema(base_name: str, target_name: str, example_desc: str, translation_desc: str) -> str:
+    return (
+        "{\n"
+        f'  "word": "canonical form of the {target_name} word",\n'
+        f'  "phonetic": "IPA/pronunciation of the {target_name} word",\n'
+        '  "part_of_speech": "one of: noun, verb, adjective, adverb, preposition, conjunction, interjection",\n'
+        f'  "chinese_meaning": "concise meaning of the word written in {base_name}",\n'
+        f'  "chinese_pinyin": "Latin-letter romanization of the {target_name} word (e.g. pinyin if Chinese, romaji if Japanese); empty string if not applicable",\n'
+        f'  "synonyms": "2-4 {target_name} synonyms, comma-separated",\n'
+        f'  "antonyms": "2-4 {target_name} antonyms, comma-separated",\n'
+        f'  "collocations": "3-5 common {target_name} collocations, comma-separated",\n'
+        '  "tags": "1-2 topic tags, comma-separated, from: business, finance, politics, science, technology, culture, psychology, environment, health, law, economics, society, education, sports, arts",\n'
+        f'  "etymology": "1-2 sentence etymology of the {target_name} word, written in {base_name}",\n'
+        f'  "example_sentence": "{example_desc}",\n'
+        f'  "chinese_translation": "{translation_desc}"\n'
+        "}"
+    )
+
+
+def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh", target_lang: str = "en") -> str:
+    base_name = _LANG_NAMES.get(base_lang, "English")
+    target_name = _LANG_NAMES.get(target_lang, "English")
     if sentence:
-        schema = _JSON_SCHEMA.replace(
-            "EXAMPLE_SLOT",
+        schema = _dynamic_schema(
+            base_name, target_name,
             "<copy the news sentence provided above verbatim>",
-        ).replace(
-            "TRANSLATION_SLOT",
-            "Chinese translation of the example_sentence",
+            f"translation of example_sentence into {base_name}",
         )
         return (
-            f'Provide vocabulary information for the English word: "{word}"\n\n'
+            f'The learner speaks {base_name} and is learning {target_name}.\n'
+            f'Provide vocabulary information for the {target_name} word: "{word}"\n\n'
             "The following sentence is taken from a real news article.\n"
             "Copy it verbatim into example_sentence — do NOT rephrase:\n"
             f"  {sentence}\n\n"
             f"Return a JSON object with exactly these fields:\n{schema}"
         )
     else:
-        schema = _JSON_SCHEMA.replace(
-            "EXAMPLE_SLOT",
-            "a natural English example sentence using this word",
-        ).replace(
-            "TRANSLATION_SLOT",
-            "Chinese translation of the example sentence",
+        schema = _dynamic_schema(
+            base_name, target_name,
+            f"a natural {target_name} example sentence using this word",
+            f"translation of the example sentence into {base_name}",
         )
         return (
-            f'Provide vocabulary information for the English word: "{word}"\n\n'
+            f'The learner speaks {base_name} and is learning {target_name}.\n'
+            f'Provide vocabulary information for the {target_name} word: "{word}"\n\n'
             f"Return a JSON object with exactly these fields:\n{schema}"
         )
 
@@ -387,12 +412,15 @@ def _build_prompt(word: str, sentence: Optional[str]) -> str:
 # Ana fonksiyon
 # ---------------------------------------------------------------------------
 
-async def enrich_word(word: str) -> dict:
-    """Gerçek haber cümlesi ara, DeepSeek ile zenginleştir."""
+async def enrich_word(word: str, base_lang: str = "zh", target_lang: str = "en") -> dict:
+    """Enrich a word for a (base→target) course. News example search only runs
+    for English targets; other targets get an AI-generated example sentence."""
     client = _get_client()
 
-    sentence, source_name, source_url = await _search_example(word)
-    prompt = _build_prompt(word, sentence)
+    sentence = source_name = source_url = None
+    if target_lang == "en":
+        sentence, source_name, source_url = await _search_example(word)
+    prompt = _build_prompt(word, sentence, base_lang, target_lang)
 
     try:
         response = await client.chat.completions.create(

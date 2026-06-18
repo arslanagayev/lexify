@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import Integer, String, Text, DateTime, Float, func, ForeignKey
+from sqlalchemy import Integer, String, Text, DateTime, Float, func, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from backend.database import Base
 
@@ -26,6 +26,7 @@ class User(Base):
     weekly_email: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     is_admin: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     language_preference: Mapped[str] = mapped_column(String(5), default="en", server_default="en", nullable=False)
+    active_course_id: Mapped[Optional[int]] = mapped_column(Integer)
 
     @property
     def telegram_bot_connected(self) -> bool:
@@ -71,6 +72,7 @@ class Word(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), index=True)
+    course_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
     word: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     phonetic: Mapped[Optional[str]] = mapped_column(String(100))
     part_of_speech: Mapped[Optional[str]] = mapped_column(String(50))
@@ -151,6 +153,19 @@ class Achievement(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     achievement_id: Mapped[str] = mapped_column(String(40), nullable=False)
     unlocked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Course(Base):
+    __tablename__ = "courses"
+    __table_args__ = (UniqueConstraint("user_id", "base_language", "target_language"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    base_language: Mapped[str] = mapped_column(String(5), nullable=False)
+    target_language: Mapped[str] = mapped_column(String(5), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
