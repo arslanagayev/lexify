@@ -381,6 +381,14 @@ def _dynamic_schema(base_name: str, target_name: str, example_desc: str, transla
 def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh", target_lang: str = "en") -> str:
     base_name = _LANG_NAMES.get(base_lang, "English")
     target_name = _LANG_NAMES.get(target_lang, "English")
+    translate_rule = (
+        f'The learner speaks {base_name} and is learning {target_name}.\n'
+        f'The learner entered this word (it may be written in {base_name} OR {target_name}): "{word}"\n'
+        f'STEP 1: Determine the equivalent word in {target_name}. If the input is in {base_name}, '
+        f'translate it to {target_name} and pick the single most common {target_name} equivalent.\n'
+        f'STEP 2: Build the JSON about that {target_name} word.\n'
+        f'The "word" field MUST be the {target_name} word — NEVER {base_name}.\n\n'
+    )
     if sentence:
         schema = _dynamic_schema(
             base_name, target_name,
@@ -388,8 +396,7 @@ def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh", tar
             f"translation of example_sentence into {base_name}",
         )
         return (
-            f'The learner speaks {base_name} and is learning {target_name}.\n'
-            f'Provide vocabulary information for the {target_name} word: "{word}"\n\n'
+            translate_rule +
             "The following sentence is taken from a real news article.\n"
             "Copy it verbatim into example_sentence — do NOT rephrase:\n"
             f"  {sentence}\n\n"
@@ -398,12 +405,11 @@ def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh", tar
     else:
         schema = _dynamic_schema(
             base_name, target_name,
-            f"a natural {target_name} example sentence using this word",
+            f"a natural {target_name} example sentence using the {target_name} word",
             f"translation of the example sentence into {base_name}",
         )
         return (
-            f'The learner speaks {base_name} and is learning {target_name}.\n'
-            f'Provide vocabulary information for the {target_name} word: "{word}"\n\n'
+            translate_rule +
             f"Return a JSON object with exactly these fields:\n{schema}"
         )
 
@@ -418,7 +424,10 @@ async def enrich_word(word: str, base_lang: str = "zh", target_lang: str = "en")
     client = _get_client()
 
     sentence = source_name = source_url = None
-    if target_lang == "en":
+    # Real-news example only when the input word is already English (zh→en).
+    # Other English-target courses may receive a base-language input, so let
+    # the AI generate the example after translating the word.
+    if target_lang == "en" and base_lang == "zh":
         sentence, source_name, source_url = await _search_example(word)
     prompt = _build_prompt(word, sentence, base_lang, target_lang)
 
