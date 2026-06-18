@@ -25,6 +25,7 @@ class User(Base):
     last_code_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     weekly_email: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     is_admin: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    language_preference: Mapped[str] = mapped_column(String(5), default="en", server_default="en", nullable=False)
 
     @property
     def telegram_bot_connected(self) -> bool:

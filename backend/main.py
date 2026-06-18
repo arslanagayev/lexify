@@ -265,6 +265,18 @@ async def change_password(
     await crud.update_user_password(db, current_user, hash_password(body.new_password))
 
 
+@app.put("/auth/language")
+async def set_language(
+    body: schemas.LanguageRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.lang not in ("en", "tr", "ru", "zh"):
+        raise HTTPException(status_code=400, detail="Invalid language")
+    await crud.set_user_language(db, current_user, body.lang)
+    return {"language_preference": body.lang}
+
+
 @app.put("/auth/weekly-email")
 async def set_weekly_email(
     body: schemas.WeeklyEmailRequest,

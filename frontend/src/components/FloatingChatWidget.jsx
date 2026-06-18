@@ -58,13 +58,9 @@ function Markdown({ content }) {
   return <>{blocks}</>
 }
 
-const WELCOME = {
-  role: 'assistant',
-  content: "Hi! I'm your Lexify AI Tutor. Ask me about any English word or grammar point! 📚",
-}
-
 export default function FloatingChatWidget({ apiBase, token }) {
-  const { lang } = useLang()
+  const { lang, t } = useLang()
+  const WELCOME = { role: 'assistant', content: t.chatWelcome }
   const [open, setOpen]       = useState(false)
   const [messages, setMessages] = useState([WELCOME])
   const [input, setInput]     = useState('')

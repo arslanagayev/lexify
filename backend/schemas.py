@@ -76,6 +76,7 @@ class UserResponse(BaseModel):
     telegram_linked: bool = False
     weekly_email: bool = True
     is_admin: bool = False
+    language_preference: str = "en"
 
     model_config = {"from_attributes": True}
 
@@ -291,6 +292,10 @@ class AchievementUnlock(BaseModel):
 
 class WeeklyEmailRequest(BaseModel):
     enabled: bool
+
+
+class LanguageRequest(BaseModel):
+    lang: str
 
 
 class ShareListRequest(BaseModel):

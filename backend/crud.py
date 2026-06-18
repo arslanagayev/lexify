@@ -895,6 +895,11 @@ async def unlink_telegram_chat(db: AsyncSession, user: User) -> User:
 
 
 async def get_telegram_language(db: AsyncSession, chat_id: str) -> str:
+    # Single source of truth: a linked web account's preference wins,
+    # then the per-chat row, then English default.
+    user = await get_user_by_telegram_chat_id(db, chat_id)
+    if user and getattr(user, "language_preference", None):
+        return user.language_preference
     row = await db.get(TelegramLanguage, chat_id)
     return row.language if row else "en"
 
@@ -905,6 +910,15 @@ async def set_telegram_language(db: AsyncSession, chat_id: str, language: str) -
         row.language = language
     else:
         db.add(TelegramLanguage(chat_id=chat_id, language=language))
+    # Keep the linked account's preference in sync
+    user = await get_user_by_telegram_chat_id(db, chat_id)
+    if user:
+        user.language_preference = language
+    await db.commit()
+
+
+async def set_user_language(db: AsyncSession, user: User, language: str) -> None:
+    user.language_preference = language
     await db.commit()
 
 

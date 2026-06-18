@@ -89,8 +89,28 @@ export default function App() {
 let _toastId = 0
 
 function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }) {
-  const { t, lang } = useLang()
+  const { t, lang, setLang } = useLang()
+  const { user } = useAuth()
   const seenLangs = useRef(new Set())
+  const langInitRef = useRef(false)
+
+  // Load the user's saved language once on mount
+  useEffect(() => {
+    if (!langInitRef.current && user?.language_preference && user.language_preference !== lang) {
+      setLang(user.language_preference)
+    }
+    langInitRef.current = true
+  }, [user])  // eslint-disable-line
+
+  // Persist language changes for the logged-in user (single source of truth)
+  useEffect(() => {
+    if (!token || !langInitRef.current) return
+    fetch(`${API}/auth/language`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ lang }),
+    }).catch(() => {})
+  }, [lang, token])
   const [words, setWords]         = useState([])
   const [query, setQuery]         = useState('')
   const [tagFilter, setTagFilter] = useState('')
@@ -463,6 +483,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                             onClick={() => exportWordsPdf(words, {
                               title: t.pdfTitle, meaning: t.meaning, example: t.example,
                               source: t.source, words: t.pdfWords,
+                              saveBtn: t.pdfSave, hint: t.pdfHint, popupBlocked: t.pdfPopup,
                             })}
                             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-white/50 hover:text-white transition-all"
                           >
