@@ -200,6 +200,27 @@ async def generate_examples(word: str) -> list[str]:
     return [str(x).strip() for x in out if str(x).strip()][:3]
 
 
+_MNEMONIC_PROMPT = (
+    "Create a short, vivid memory aid (mnemonic) to help an English learner remember "
+    "the word \"{word}\"{meaning}. Use sound similarity, a visual image, or word breakdown. "
+    "Keep it to 1-2 sentences, creative and memorable. Output only the tip text."
+)
+
+
+async def generate_mnemonic(word: str, meaning: str = "") -> str:
+    client = _get_client()
+    m = f" (meaning: {meaning})" if meaning else ""
+    resp = await client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": "You are a creative memory coach for English learners."},
+            {"role": "user", "content": _MNEMONIC_PROMPT.format(word=word, meaning=m)},
+        ],
+        max_tokens=150, temperature=0.7,
+    )
+    return resp.choices[0].message.content.strip()
+
+
 async def generate_word_family(word: str) -> dict:
     import json as _json
     client = _get_client()

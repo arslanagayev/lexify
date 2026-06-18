@@ -5,6 +5,7 @@ import PronounceCheck from './PronounceCheck'
 import ErrorBoundary from './ErrorBoundary'
 import WordFamily from './WordFamily'
 import ConversationModal from './ConversationModal'
+import MnemonicTip from './MnemonicTip'
 
 const POS_STYLE = {
   noun:        'bg-sky-500/15 text-sky-300 border-sky-500/25',
@@ -276,6 +277,15 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
         <div className="pt-2 border-t border-white/5">
           <ErrorBoundary silent>
             <WordFamily wordId={w.id} token={token} apiBase={apiBase} ownedWords={ownedWords} onAddWord={onAddWord} />
+          </ErrorBoundary>
+        </div>
+      )}
+
+      {/* ── Memory Tip (mnemonic) ── */}
+      {token && apiBase && (
+        <div className="pt-2 border-t border-white/5">
+          <ErrorBoundary silent>
+            <MnemonicTip wordId={w.id} token={token} apiBase={apiBase} />
           </ErrorBoundary>
         </div>
       )}

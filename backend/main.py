@@ -29,7 +29,7 @@ from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
 from backend.lexify_bot import poll_loop as lexify_bot_poll
-from backend.chat import chat_completion, sanitize_history, evaluate_sentence, generate_word_family, generate_examples, conversation_reply, generate_story
+from backend.chat import chat_completion, sanitize_history, evaluate_sentence, generate_word_family, generate_examples, conversation_reply, generate_story, generate_mnemonic
 
 
 @asynccontextmanager
@@ -604,6 +604,27 @@ async def word_examples(
         if s and s not in seen:
             seen.add(s); out.append(s)
     return {"examples": out}
+
+
+@app.get("/words/{word_id}/mnemonic")
+async def word_mnemonic(
+    word_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    word = await crud.get_word(db, word_id, user_id=current_user.id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+    if word.mnemonic:
+        return {"mnemonic": word.mnemonic, "cached": True}
+    try:
+        tip = await generate_mnemonic(word.word, word.chinese_meaning or "")
+    except Exception as e:
+        asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
+        raise HTTPException(status_code=503, detail={"error_code": "ai_service_limited", "message": str(e)})
+    word.mnemonic = tip
+    await db.commit()
+    return {"mnemonic": tip, "cached": False}
 
 
 @app.get("/words/{word_id}/family")
