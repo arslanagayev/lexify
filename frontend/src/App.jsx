@@ -6,6 +6,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import SettingsPage from './pages/SettingsPage'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import SharedListPage from './pages/SharedListPage'
+import LandingPage from './pages/LandingPage'
 import Header from './components/Header'
 import SearchBar from './components/SearchBar'
 import WordGrid from './components/WordGrid'
@@ -20,6 +21,7 @@ import DiscoverPanel from './components/DiscoverPanel'
 import AdminPanel from './components/AdminPanel'
 import OnboardingTour from './components/OnboardingTour'
 import ImportListModal from './components/ImportListModal'
+import { exportWordsPdf } from './utils/exportPdf'
 import WordMapModal from './components/WordMapModal'
 import AchievementsModal from './components/AchievementsModal'
 import Confetti from './components/Confetti'
@@ -30,7 +32,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function App() {
   const { token, logout } = useAuth()
-  const [authPage, setAuthPage] = useState('login')  // 'login' | 'register' | 'forgot'
+  const [authPage, setAuthPage] = useState('landing')  // 'landing' | 'login' | 'register' | 'forgot'
   const [openSettings, setOpenSettings] = useState(false)
 
   if (window.location.pathname === '/privacy') {
@@ -53,11 +55,23 @@ export default function App() {
     if (authPage === 'forgot') {
       return <ForgotPasswordPage onSwitchToLogin={() => setAuthPage('login')} />
     }
+    if (authPage === 'login') {
+      return (
+        <LoginPage
+          onSwitchToRegister={() => setAuthPage('register')}
+          onSwitchToForgot={() => setAuthPage('forgot')}
+        />
+      )
+    }
     return (
-      <LoginPage
-        onSwitchToRegister={() => setAuthPage('register')}
-        onSwitchToForgot={() => setAuthPage('forgot')}
-      />
+      <ErrorBoundary fallback={
+        <LoginPage onSwitchToRegister={() => setAuthPage('register')} onSwitchToForgot={() => setAuthPage('forgot')} />
+      }>
+        <LandingPage
+          onGetStarted={() => setAuthPage('register')}
+          onLogin={() => setAuthPage('login')}
+        />
+      </ErrorBoundary>
     )
   }
 
@@ -442,6 +456,17 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                         >
                           📲 {t.importListBtn}
                         </button>
+                        {words.length > 0 && (
+                          <button
+                            onClick={() => exportWordsPdf(words, {
+                              title: t.pdfTitle, meaning: t.meaning, example: t.example,
+                              source: t.source, words: t.pdfWords,
+                            })}
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-white/50 hover:text-white transition-all"
+                          >
+                            📄 {t.exportPdf}
+                          </button>
+                        )}
                       </div>
                     </div>
                     {allTags.length > 0 && (
