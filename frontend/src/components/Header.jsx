@@ -10,26 +10,26 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-2xl bg-black/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center gap-2">
         {/* Logo */}
-        <div className="flex items-center gap-3 shrink-0">
-          <img src={logoSrc} alt="Lexify" className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-violet-500/25" />
-          <div className="hidden sm:block">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <img src={logoSrc} alt="Lexify" className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shadow-lg shadow-violet-500/25" />
+          <div className="hidden md:block">
             <p className="text-base font-bold grad-text leading-none">Lexify</p>
             <p className="text-[11px] text-white/25 leading-none mt-0.5">{t.wordCount(count)}</p>
           </div>
-          {/* Streak badge */}
+          {/* Streak badge (hidden on phones to save room) */}
           {streak > 0 && (
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/15 border border-orange-500/25">
+            <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/15 border border-orange-500/25">
               <span className="text-sm leading-none">🔥</span>
               <span className="text-xs font-semibold text-orange-300">{t.streakDays(streak)}</span>
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Mode toggle */}
-          <div className="glass rounded-xl p-1 flex gap-1">
+        {/* Mode nav — horizontally scrollable on mobile, centered on desktop */}
+        <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar flex justify-start sm:justify-center">
+          <div className="glass rounded-xl p-1 flex gap-1 shrink-0">
             {[
               { key: 'grid',     label: t.grid,     icon: <GridIcon /> },
               { key: 'review',   label: t.review,   icon: <CardIcon /> },
@@ -52,13 +52,16 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
               </button>
             ))}
           </div>
+        </div>
 
+        {/* Utilities */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Active course indicator */}
           {activeCourse?.base_language && (
             <button
               onClick={onOpenCourses}
               title="Courses"
-              className="glass rounded-xl px-2.5 py-1.5 text-sm leading-none hover:bg-white/8 transition-colors"
+              className="glass rounded-xl px-2 sm:px-2.5 py-1.5 text-sm leading-none hover:bg-white/8 transition-colors"
             >
               {langFlag(activeCourse.base_language)}<span className="text-white/30 mx-0.5">→</span>{langFlag(activeCourse.target_language)}
             </button>

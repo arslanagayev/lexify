@@ -141,10 +141,10 @@ export default function FloatingChatWidget({ apiBase, token }) {
       {/* Chat drawer */}
       {open && (
         <div
-          className="fixed bottom-24 right-4 sm:right-6 z-50 flex flex-col
-                     w-[calc(100vw-2rem)] sm:w-[380px] h-[520px] max-h-[calc(100vh-8rem)]
-                     glass rounded-2xl border border-white/10 shadow-2xl shadow-black/50
-                     overflow-hidden animate-[fadeIn_0.15s_ease-out]"
+          className="fixed z-50 flex flex-col glass border border-white/10 shadow-2xl shadow-black/50 overflow-hidden
+                     animate-[fadeIn_0.15s_ease-out]
+                     inset-0 w-full h-full rounded-none
+                     sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[380px] sm:h-[520px] sm:max-h-[calc(100vh-8rem)] sm:rounded-2xl"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 shrink-0">

@@ -7,6 +7,11 @@
     box-sizing: border-box;
   }
 
+  html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
   body {
     background-color: #0d0d18;
     background-image:
@@ -149,6 +154,10 @@ html.light .grad-text { -webkit-text-fill-color: transparent; } /* keep gradient
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Hide scrollbar (used for horizontally-scrollable mobile nav) ── */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* ── Confetti ──────────────────────────────────────────────── */
 @keyframes confetti-fall {
