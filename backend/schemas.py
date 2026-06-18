@@ -287,3 +287,7 @@ class WeeklyEmailRequest(BaseModel):
 
 class ShareListRequest(BaseModel):
     title: str = ""
+
+
+class ImportCodeRequest(BaseModel):
+    code: str

@@ -686,6 +686,8 @@ async def import_shared_list(db: AsyncSession, user: User, code: str) -> Optiona
     sl = result.scalar_one_or_none()
     if not sl:
         return None
+    if sl.owner_id == user.id:
+        return {"error": "own"}
     try:
         words = _json.loads(sl.words_json)
     except Exception:

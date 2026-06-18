@@ -364,6 +364,20 @@ async def view_shared_list(code: str, db: AsyncSession = Depends(get_db)):
     return data
 
 
+@app.post("/lists/import")
+async def import_list_by_code(
+    body: schemas.ImportCodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await crud.import_shared_list(db, current_user, body.code.strip())
+    if result is None:
+        raise HTTPException(status_code=404, detail="Invalid code")
+    if result.get("error") == "own":
+        raise HTTPException(status_code=400, detail="This is your own list")
+    return result
+
+
 @app.post("/lists/shared/{code}/import")
 async def import_shared(
     code: str,
@@ -373,6 +387,8 @@ async def import_shared(
     result = await crud.import_shared_list(db, current_user, code)
     if result is None:
         raise HTTPException(status_code=404, detail="Shared list not found")
+    if result.get("error") == "own":
+        raise HTTPException(status_code=400, detail="This is your own list")
     return result
 
 

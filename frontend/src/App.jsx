@@ -19,6 +19,7 @@ import ImportWordsModal from './components/ImportWordsModal'
 import DiscoverPanel from './components/DiscoverPanel'
 import AdminPanel from './components/AdminPanel'
 import OnboardingTour from './components/OnboardingTour'
+import ImportListModal from './components/ImportListModal'
 import WordMapModal from './components/WordMapModal'
 import AchievementsModal from './components/AchievementsModal'
 import Confetti from './components/Confetti'
@@ -84,7 +85,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [mapWord, setMapWord] = useState(null)
   const [showAchievements, setShowAchievements] = useState(false)
   const [confetti, setConfetti] = useState(false)
-  const [shareListUrl, setShareListUrl] = useState(null)
+  const [shareData, setShareData] = useState(null)   // { code, url }
+  const [showImportList, setShowImportList] = useState(false)
   const [showTour, setShowTour] = useState(false)
   const tourSeenRef = useRef(false)
 
@@ -97,7 +99,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       })
       if (!res.ok) return
       const d = await res.json()
-      setShareListUrl(d.url)
+      setShareData({ code: d.code, url: d.url })
     } catch { /* ignore */ }
   }, [token])
   const [theme, setTheme] = useState('dark')  // session-only, defaults dark
@@ -434,6 +436,12 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                             🔗 {t.shareListBtn}
                           </button>
                         )}
+                        <button
+                          onClick={() => setShowImportList(true)}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-white/50 hover:text-white transition-all"
+                        >
+                          📲 {t.importListBtn}
+                        </button>
                       </div>
                     </div>
                     {allTags.length > 0 && (
@@ -509,26 +517,46 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
         </ErrorBoundary>
       )}
 
-      {shareListUrl && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShareListUrl(null)}>
+      {shareData && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShareData(null)}>
           <div className="glass rounded-3xl border border-white/10 shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-semibold grad-text mb-2">{t.shareListTitle}</h2>
             <p className="text-white/45 text-sm mb-4">{t.shareListDesc}</p>
-            <div className="flex gap-2">
-              <input readOnly value={shareListUrl}
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white/80" />
+
+            <label className="text-[11px] uppercase tracking-widest text-white/30">{t.shareCodeLabel}</label>
+            <div className="flex gap-2 mt-1 mb-3">
+              <input readOnly value={shareData.code}
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white/80 font-mono tracking-wider" />
               <button
-                onClick={() => navigator.clipboard?.writeText(shareListUrl)}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-sky-500 text-white text-sm font-medium">
-                {t.telegramCopyCode}
+                onClick={() => navigator.clipboard?.writeText(shareData.code)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-sky-500 text-white text-sm font-medium whitespace-nowrap">
+                {t.copyCode}
               </button>
             </div>
-            <button onClick={() => setShareListUrl(null)}
-              className="mt-4 w-full py-2 rounded-xl glass border border-white/10 text-white/50 hover:text-white text-sm transition-all">
+
+            <label className="text-[11px] uppercase tracking-widest text-white/30">{t.shareLinkLabel}</label>
+            <div className="flex gap-2 mt-1">
+              <input readOnly value={shareData.url}
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white/80" />
+              <button
+                onClick={() => navigator.clipboard?.writeText(shareData.url)}
+                className="px-4 py-2 rounded-xl glass border border-white/10 text-white/70 hover:text-white text-sm font-medium whitespace-nowrap">
+                {t.copyLink}
+              </button>
+            </div>
+
+            <button onClick={() => setShareData(null)}
+              className="mt-5 w-full py-2 rounded-xl glass border border-white/10 text-white/50 hover:text-white text-sm transition-all">
               {t.importDone}
             </button>
           </div>
         </div>
+      )}
+
+      {showImportList && (
+        <ErrorBoundary silent>
+          <ImportListModal apiBase={API} token={token} onClose={() => setShowImportList(false)} onImported={fetchWords} />
+        </ErrorBoundary>
       )}
     </div>
   )
