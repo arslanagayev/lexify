@@ -80,6 +80,16 @@ export default function FloatingChatWidget({ apiBase, token }) {
     if (open) setTimeout(() => inputRef.current?.focus(), 100)
   }, [open])
 
+  // When the site language changes: keep the history, append a localized
+  // info notice, and let new replies use the new language.
+  const langRef = useRef(lang)
+  useEffect(() => {
+    if (langRef.current !== lang) {
+      langRef.current = lang
+      setMessages(prev => [...prev, { role: 'info', content: t.chatLangChanged }])
+    }
+  }, [lang, t])
+
   const send = async () => {
     const text = input.trim()
     if (!text || loading) return
@@ -100,13 +110,11 @@ export default function FloatingChatWidget({ apiBase, token }) {
       })
 
       if (!res.ok) {
-        let msg = 'Something went wrong. Please try again.'
+        let msg = t.chatErrGeneric
         try {
           const data = await res.json()
           const detail = data.detail || {}
-          if (detail.error_code === 'ai_service_limited') {
-            msg = '⚠️ AI service is temporarily unavailable. Please try again later.'
-          }
+          if (detail.error_code === 'ai_service_limited') msg = t.chatErrAI
         } catch { /* keep default */ }
         setMessages([...next, { role: 'assistant', content: msg }])
         return
@@ -115,10 +123,7 @@ export default function FloatingChatWidget({ apiBase, token }) {
       const data = await res.json()
       setMessages([...next, { role: 'assistant', content: data.reply }])
     } catch {
-      setMessages([...next, {
-        role: 'assistant',
-        content: '❌ Network error. Please check your connection and try again.',
-      }])
+      setMessages([...next, { role: 'assistant', content: t.chatErrNetwork }])
     } finally {
       setLoading(false)
     }
@@ -148,15 +153,15 @@ export default function FloatingChatWidget({ apiBase, token }) {
                               flex items-center justify-center text-sm">🤖</div>
               <div>
                 <h3 className="text-sm font-semibold grad-text leading-tight">Lexify AI Tutor 🎓</h3>
-                <p className="text-[10px] text-white/35 leading-tight">English learning assistant</p>
+                <p className="text-[10px] text-white/35 leading-tight">{t.chatSubtitle}</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setMessages([WELCOME])}
+                onClick={() => { langRef.current = lang; setMessages([WELCOME]) }}
                 className="text-white/40 hover:text-white/80 transition-colors p-1"
                 aria-label="Clear chat"
-                title="Clear conversation"
+                title={t.chatClear}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
@@ -177,19 +182,25 @@ export default function FloatingChatWidget({ apiBase, token }) {
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
-                    m.role === 'user'
-                      ? 'bg-gradient-to-br from-violet-600/80 to-sky-600/80 text-white rounded-br-md whitespace-pre-wrap'
-                      : 'glass border-white/8 text-white/85 rounded-bl-md chat-md'
-                  }`}
-                >
-                  {m.role === 'user'
-                    ? m.content
-                    : <Markdown content={m.content} />}
+              m.role === 'info' ? (
+                <div key={i} className="flex justify-center">
+                  <span className="text-[11px] text-white/40 bg-white/5 border border-white/10 rounded-full px-3 py-1 text-center">
+                    {m.content}
+                  </span>
                 </div>
-              </div>
+              ) : (
+                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
+                      m.role === 'user'
+                        ? 'bg-gradient-to-br from-violet-600/80 to-sky-600/80 text-white rounded-br-md whitespace-pre-wrap'
+                        : 'glass border-white/8 text-white/85 rounded-bl-md chat-md'
+                    }`}
+                  >
+                    {m.role === 'user' ? m.content : <Markdown content={m.content} />}
+                  </div>
+                </div>
+              )
             ))}
 
             {loading && (
@@ -214,7 +225,7 @@ export default function FloatingChatWidget({ apiBase, token }) {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={onKeyDown}
                 rows={1}
-                placeholder="Type a message…"
+                placeholder={t.chatPlaceholder}
                 maxLength={1000}
                 className="flex-1 resize-none bg-white/5 border border-white/10 rounded-xl
                            px-3 py-2 text-sm text-white/90 placeholder-white/30
