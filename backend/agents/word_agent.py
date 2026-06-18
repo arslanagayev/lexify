@@ -359,11 +359,26 @@ _JSON_SCHEMA = (
 )
 
 
-def _dynamic_schema(base_name: str, target_name: str, example_desc: str, translation_desc: str) -> str:
+_PHONETIC_RULE = {
+    "zh": "Pinyin with tone marks (e.g. 'shòu yǐngxiǎng') — NOT IPA, NOT tone numbers",
+    "ja": "Romaji (Latin romanization, e.g. 'taberu')",
+    "ko": "Revised Romanization (e.g. 'annyeong')",
+    "ar": "Latin transliteration (e.g. 'kitāb')",
+    "ru": "IPA or Latin transliteration",
+    "hi": "IAST/Latin transliteration",
+}
+
+
+def _phonetic_desc(target_lang: str, target_name: str) -> str:
+    rule = _PHONETIC_RULE.get(target_lang, f"IPA transcription, e.g. /rɪˈzɪl.i.əns/")
+    return f"pronunciation of the {target_name} word using the standard learner system for {target_name}: {rule}"
+
+
+def _dynamic_schema(base_name: str, target_name: str, phonetic_desc: str, example_desc: str, translation_desc: str) -> str:
     return (
         "{\n"
         f'  "word": "canonical form of the {target_name} word",\n'
-        f'  "phonetic": "IPA/pronunciation of the {target_name} word",\n'
+        f'  "phonetic": "{phonetic_desc}",\n'
         '  "part_of_speech": "one of: noun, verb, adjective, adverb, preposition, conjunction, interjection",\n'
         f'  "chinese_meaning": "concise meaning of the word written in {base_name}",\n'
         f'  "chinese_pinyin": "Latin-letter romanization of the {target_name} word (e.g. pinyin if Chinese, romaji if Japanese); empty string if not applicable",\n'
@@ -381,6 +396,7 @@ def _dynamic_schema(base_name: str, target_name: str, example_desc: str, transla
 def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh", target_lang: str = "en") -> str:
     base_name = _LANG_NAMES.get(base_lang, "English")
     target_name = _LANG_NAMES.get(target_lang, "English")
+    ph = _phonetic_desc(target_lang, target_name)
     translate_rule = (
         f'The learner speaks {base_name} and is learning {target_name}.\n'
         f'The learner entered this word (it may be written in {base_name} OR {target_name}): "{word}"\n'
@@ -391,7 +407,7 @@ def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh", tar
     )
     if sentence:
         schema = _dynamic_schema(
-            base_name, target_name,
+            base_name, target_name, ph,
             "<copy the news sentence provided above verbatim>",
             f"translation of example_sentence into {base_name}",
         )
@@ -404,7 +420,7 @@ def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh", tar
         )
     else:
         schema = _dynamic_schema(
-            base_name, target_name,
+            base_name, target_name, ph,
             f"a natural {target_name} example sentence using the {target_name} word",
             f"translation of the example sentence into {base_name}",
         )
