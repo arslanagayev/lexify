@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useLang } from '../i18n/LangContext'
 import { speak } from '../utils/speech'
+import { TTS_LOCALE } from '../utils/languages'
 
-export default function StoryGeneratorModal({ words, token, apiBase, onClose }) {
+export default function StoryGeneratorModal({ words, token, apiBase, onClose, targetLang = 'en' }) {
   const { t } = useLang()
   const [selected, setSelected] = useState(new Set())
   const [loading, setLoading] = useState(false)
   const [story, setStory] = useState(null)
+  const [summary, setSummary] = useState('')
   const [usedWords, setUsedWords] = useState([])
   const [error, setError] = useState(null)
   const [speaking, setSpeaking] = useState(false)
@@ -32,6 +34,7 @@ export default function StoryGeneratorModal({ words, token, apiBase, onClose }) 
       if (!res.ok) throw new Error()
       const d = await res.json()
       setStory(d.story)
+      setSummary(d.summary || '')
       setUsedWords(d.words || [])
     } catch {
       setError(t.storyError)
@@ -43,7 +46,7 @@ export default function StoryGeneratorModal({ words, token, apiBase, onClose }) 
   const readAloud = () => {
     if (!story) return
     setSpeaking(true)
-    speak(story, 'en-US', { onEnd: () => setSpeaking(false), onError: () => setSpeaking(false) })
+    speak(story, TTS_LOCALE[targetLang] || 'en-US', { onEnd: () => setSpeaking(false), onError: () => setSpeaking(false) })
   }
 
   // Render story with target words bolded
@@ -73,7 +76,10 @@ export default function StoryGeneratorModal({ words, token, apiBase, onClose }) 
 
         {story ? (
           <>
-            <p className="text-white/80 text-[15px] leading-relaxed mb-4">{renderStory()}</p>
+            <p className="text-white/80 text-[15px] leading-relaxed mb-3">{renderStory()}</p>
+            {summary && (
+              <p className="text-white/45 text-xs italic mb-4 border-t border-white/8 pt-3">{summary}</p>
+            )}
             <div className="flex gap-2">
               <button onClick={readAloud} disabled={speaking}
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-sky-500 text-white text-sm font-medium disabled:opacity-60">

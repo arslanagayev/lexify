@@ -710,8 +710,11 @@ async def word_mnemonic(
         raise HTTPException(status_code=404, detail="Word not found")
     if word.mnemonic:
         return {"mnemonic": word.mnemonic, "cached": True}
+    course = await crud.get_course(db, current_user.id, word.course_id) if word.course_id else None
+    base_lang = course.base_language if course else "zh"
+    target_lang = course.target_language if course else "en"
     try:
-        tip = await generate_mnemonic(word.word, word.chinese_meaning or "")
+        tip = await generate_mnemonic(word.word, word.chinese_meaning or "", target_lang=target_lang, base_lang=base_lang)
     except Exception as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(status_code=503, detail={"error_code": "ai_service_limited", "message": str(e)})
@@ -782,8 +785,11 @@ async def word_conversation(
         for m in body.messages
         if m.role in ("user", "assistant") and (m.content or "").strip()
     ][-10:]
+    course = await crud.get_course(db, current_user.id, word.course_id) if word.course_id else None
+    base_lang = course.base_language if course else "zh"
+    target_lang = course.target_language if course else "en"
     try:
-        reply = await conversation_reply(word.word, history)
+        reply = await conversation_reply(word.word, history, target_lang=target_lang, base_lang=base_lang)
     except Exception as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(status_code=503, detail={"error_code": "ai_service_limited", "message": str(e)})
@@ -808,12 +814,16 @@ async def story_generate(
             words.append(w.word)
     if len(words) < 2:
         raise HTTPException(status_code=422, detail="Select at least 2 valid words")
+    cid = await crud.ensure_active_course(db, current_user)
+    course = await crud.get_course(db, current_user.id, cid)
+    base_lang = course.base_language if course else "zh"
+    target_lang = course.target_language if course else "en"
     try:
-        story = await generate_story(words)
+        result = await generate_story(words, target_lang=target_lang, base_lang=base_lang)
     except Exception as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(status_code=503, detail={"error_code": "ai_service_limited", "message": str(e)})
-    return {"story": story, "words": words}
+    return {"story": result.get("story", ""), "summary": result.get("summary", ""), "words": words}
 
 
 @app.post("/words/{word_id}/practice")

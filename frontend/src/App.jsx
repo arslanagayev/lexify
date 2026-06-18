@@ -646,7 +646,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
 
       {showStory && (
         <ErrorBoundary silent>
-          <StoryGeneratorModal words={words} apiBase={API} token={token} onClose={() => setShowStory(false)} />
+          <StoryGeneratorModal words={words} apiBase={API} token={token} targetLang={activeCourse?.target_language || 'en'} onClose={() => setShowStory(false)} />
         </ErrorBoundary>
       )}
     </div>

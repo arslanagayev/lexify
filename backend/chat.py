@@ -132,18 +132,20 @@ _FAMILY_PROMPT = (
 
 
 _CONVO_PROMPT = (
-    "You are a friendly English conversation partner helping the learner practice the word "
-    "\"{word}\". Keep each reply short (1-3 sentences). Encourage them to use \"{word}\" "
-    "naturally in their answers. Stay strictly on English language practice — politely decline "
-    "any other topic. Be warm and encouraging. If the conversation hasn't started, OPEN with a "
-    "simple real-life scenario that invites them to use \"{word}\". After 3-4 good exchanges, "
-    "congratulate them on using \"{word}\" well."
+    "You are a friendly {target} conversation partner helping the learner (who speaks {base}) "
+    "practice the {target} word \"{word}\". Speak in simple, beginner-friendly {target}. "
+    "Keep each reply short (1-2 sentences). Encourage them to use \"{word}\" naturally. "
+    "Stay strictly on {target} language practice — politely decline any other topic. Be warm. "
+    "If the conversation hasn't started, OPEN with a simple real-life scenario (in {target}) that "
+    "invites them to use \"{word}\". After 3-4 good exchanges, congratulate them."
 )
 
 
-async def conversation_reply(word: str, history: list[dict]) -> str:
+async def conversation_reply(word: str, history: list[dict], target_lang: str = "en", base_lang: str = "zh") -> str:
     client = _get_client()
-    msgs = [{"role": "system", "content": _CONVO_PROMPT.format(word=word)}]
+    tname = _LANG_NAMES.get(target_lang, "English")
+    bname = _LANG_NAMES.get(base_lang, "English")
+    msgs = [{"role": "system", "content": _CONVO_PROMPT.format(word=word, target=tname, base=bname)}]
     if not history:
         msgs.append({"role": "user", "content": "Let's begin."})
     else:
@@ -155,22 +157,33 @@ async def conversation_reply(word: str, history: list[dict]) -> str:
 
 
 _STORY_PROMPT = (
-    "Write a short, engaging story (100-150 words) that uses ALL of these English words "
-    "naturally: {words}. Make it coherent and memorable. Output only the story text."
+    "Write a short, engaging story (100-150 words) ENTIRELY in {target}, using ALL of these "
+    "{target} words naturally: {words}. The WHOLE story must be written in {target} — do NOT mix "
+    "in any other language. Mark each of the listed words in **bold**. "
+    'Return ONLY JSON: {{"story": "the {target} story with the target words in **bold**", '
+    '"summary": "one short sentence in {base} summarizing the story"}}'
 )
 
 
-async def generate_story(words: list[str]) -> str:
+async def generate_story(words: list[str], target_lang: str = "en", base_lang: str = "zh") -> dict:
+    import json as _json
     client = _get_client()
+    tname = _LANG_NAMES.get(target_lang, "English")
+    bname = _LANG_NAMES.get(base_lang, "English")
     resp = await client.chat.completions.create(
         model="deepseek-chat",
         messages=[
-            {"role": "system", "content": "You are a creative English writing assistant for language learners."},
-            {"role": "user", "content": _STORY_PROMPT.format(words=", ".join(words))},
+            {"role": "system", "content": f"You are a creative {tname} writing assistant for language learners. Output JSON only."},
+            {"role": "user", "content": _STORY_PROMPT.format(target=tname, base=bname, words=", ".join(words))},
         ],
-        max_tokens=400, temperature=0.7,
+        max_tokens=600, temperature=0.7,
+        response_format={"type": "json_object"},
     )
-    return resp.choices[0].message.content
+    try:
+        data = _json.loads(resp.choices[0].message.content)
+    except Exception:
+        return {"story": resp.choices[0].message.content, "summary": ""}
+    return {"story": str(data.get("story", "")), "summary": str(data.get("summary", ""))}
 
 
 _EXAMPLES_PROMPT = (
@@ -201,22 +214,25 @@ async def generate_examples(word: str) -> list[str]:
 
 
 _MNEMONIC_PROMPT = (
-    "Create a short, vivid memory aid (mnemonic) to help an English learner remember "
-    "the word \"{word}\"{meaning}. Use sound similarity, a visual image, or word breakdown. "
-    "Keep it to 1-2 sentences, creative and memorable. Output only the tip text."
+    "Create a short, vivid memory aid (mnemonic) to help a learner remember the {target} word "
+    "\"{word}\"{meaning}. Use sound similarity, a visual image, or word breakdown. "
+    "Write the tip in {base} (the learner's language). Keep it to 1-2 sentences, creative and "
+    "memorable. Output only the tip text."
 )
 
 
-async def generate_mnemonic(word: str, meaning: str = "") -> str:
+async def generate_mnemonic(word: str, meaning: str = "", target_lang: str = "en", base_lang: str = "zh") -> str:
     client = _get_client()
+    tname = _LANG_NAMES.get(target_lang, "English")
+    bname = _LANG_NAMES.get(base_lang, "English")
     m = f" (meaning: {meaning})" if meaning else ""
     resp = await client.chat.completions.create(
         model="deepseek-chat",
         messages=[
-            {"role": "system", "content": "You are a creative memory coach for English learners."},
-            {"role": "user", "content": _MNEMONIC_PROMPT.format(word=word, meaning=m)},
+            {"role": "system", "content": f"You are a creative memory coach. Write in {bname}."},
+            {"role": "user", "content": _MNEMONIC_PROMPT.format(word=word, meaning=m, target=tname, base=bname)},
         ],
-        max_tokens=150, temperature=0.7,
+        max_tokens=180, temperature=0.7,
     )
     return resp.choices[0].message.content.strip()
 
