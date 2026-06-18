@@ -269,6 +269,14 @@ class PracticeRequest(BaseModel):
     sentence: str
 
 
+class ConversationRequest(BaseModel):
+    messages: list[ChatMessage] = []
+
+
+class StoryRequest(BaseModel):
+    word_ids: list[int]
+
+
 class FillBlankAnswer(BaseModel):
     selected_word: str
 

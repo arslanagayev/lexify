@@ -21,6 +21,7 @@ import DiscoverPanel from './components/DiscoverPanel'
 import AdminPanel from './components/AdminPanel'
 import OnboardingTour from './components/OnboardingTour'
 import ImportListModal from './components/ImportListModal'
+import StoryGeneratorModal from './components/StoryGeneratorModal'
 import { exportWordsPdf } from './utils/exportPdf'
 import WordMapModal from './components/WordMapModal'
 import AchievementsModal from './components/AchievementsModal'
@@ -101,6 +102,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
   const [confetti, setConfetti] = useState(false)
   const [shareData, setShareData] = useState(null)   // { code, url }
   const [showImportList, setShowImportList] = useState(false)
+  const [showStory, setShowStory] = useState(false)
   const [showTour, setShowTour] = useState(false)
   const tourSeenRef = useRef(false)
 
@@ -467,6 +469,14 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                             📄 {t.exportPdf}
                           </button>
                         )}
+                        {words.length >= 2 && (
+                          <button
+                            onClick={() => setShowStory(true)}
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full glass border border-white/10 text-white/50 hover:text-white transition-all"
+                          >
+                            📖 {t.storyBtn}
+                          </button>
+                        )}
                       </div>
                     </div>
                     {allTags.length > 0 && (
@@ -581,6 +591,12 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       {showImportList && (
         <ErrorBoundary silent>
           <ImportListModal apiBase={API} token={token} onClose={() => setShowImportList(false)} onImported={fetchWords} />
+        </ErrorBoundary>
+      )}
+
+      {showStory && (
+        <ErrorBoundary silent>
+          <StoryGeneratorModal words={words} apiBase={API} token={token} onClose={() => setShowStory(false)} />
         </ErrorBoundary>
       )}
     </div>

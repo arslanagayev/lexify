@@ -131,6 +131,48 @@ _FAMILY_PROMPT = (
 )
 
 
+_CONVO_PROMPT = (
+    "You are a friendly English conversation partner helping the learner practice the word "
+    "\"{word}\". Keep each reply short (1-3 sentences). Encourage them to use \"{word}\" "
+    "naturally in their answers. Stay strictly on English language practice — politely decline "
+    "any other topic. Be warm and encouraging. If the conversation hasn't started, OPEN with a "
+    "simple real-life scenario that invites them to use \"{word}\". After 3-4 good exchanges, "
+    "congratulate them on using \"{word}\" well."
+)
+
+
+async def conversation_reply(word: str, history: list[dict]) -> str:
+    client = _get_client()
+    msgs = [{"role": "system", "content": _CONVO_PROMPT.format(word=word)}]
+    if not history:
+        msgs.append({"role": "user", "content": "Let's begin."})
+    else:
+        msgs += history[-10:]
+    resp = await client.chat.completions.create(
+        model="deepseek-chat", messages=msgs, max_tokens=220, temperature=0.6,
+    )
+    return resp.choices[0].message.content
+
+
+_STORY_PROMPT = (
+    "Write a short, engaging story (100-150 words) that uses ALL of these English words "
+    "naturally: {words}. Make it coherent and memorable. Output only the story text."
+)
+
+
+async def generate_story(words: list[str]) -> str:
+    client = _get_client()
+    resp = await client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": "You are a creative English writing assistant for language learners."},
+            {"role": "user", "content": _STORY_PROMPT.format(words=", ".join(words))},
+        ],
+        max_tokens=400, temperature=0.7,
+    )
+    return resp.choices[0].message.content
+
+
 _EXAMPLES_PROMPT = (
     "Write 3 natural English example sentences using the word \"{word}\", each in a "
     "different everyday context. Return ONLY JSON, no markdown:\n"

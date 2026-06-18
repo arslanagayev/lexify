@@ -29,7 +29,7 @@ from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
 from backend.lexify_bot import poll_loop as lexify_bot_poll
-from backend.chat import chat_completion, sanitize_history, evaluate_sentence, generate_word_family, generate_examples
+from backend.chat import chat_completion, sanitize_history, evaluate_sentence, generate_word_family, generate_examples, conversation_reply, generate_story
 
 
 @asynccontextmanager
@@ -649,6 +649,57 @@ async def pronunciation_attempt(
         await db.commit()
         await db.refresh(word)
     return {"pronunciation_score": word.pronunciation_score}
+
+
+@app.post("/words/{word_id}/conversation")
+@limiter.limit("20/minute")
+async def word_conversation(
+    request: Request,
+    word_id: int,
+    body: schemas.ConversationRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    word = await crud.get_word(db, word_id, user_id=current_user.id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+    history = [
+        {"role": m.role, "content": (m.content or "").strip()[:1000]}
+        for m in body.messages
+        if m.role in ("user", "assistant") and (m.content or "").strip()
+    ][-10:]
+    try:
+        reply = await conversation_reply(word.word, history)
+    except Exception as e:
+        asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
+        raise HTTPException(status_code=503, detail={"error_code": "ai_service_limited", "message": str(e)})
+    return {"reply": reply}
+
+
+@app.post("/story/generate")
+@limiter.limit("10/minute")
+async def story_generate(
+    request: Request,
+    body: schemas.StoryRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ids = body.word_ids[:10]
+    if len(ids) < 2:
+        raise HTTPException(status_code=422, detail="Select at least 2 words")
+    words = []
+    for wid in ids:
+        w = await crud.get_word(db, wid, user_id=current_user.id)
+        if w:
+            words.append(w.word)
+    if len(words) < 2:
+        raise HTTPException(status_code=422, detail="Select at least 2 valid words")
+    try:
+        story = await generate_story(words)
+    except Exception as e:
+        asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
+        raise HTTPException(status_code=503, detail={"error_code": "ai_service_limited", "message": str(e)})
+    return {"story": story, "words": words}
 
 
 @app.post("/words/{word_id}/practice")

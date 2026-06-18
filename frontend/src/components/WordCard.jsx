@@ -4,6 +4,7 @@ import { speak } from '../utils/speech'
 import PronounceCheck from './PronounceCheck'
 import ErrorBoundary from './ErrorBoundary'
 import WordFamily from './WordFamily'
+import ConversationModal from './ConversationModal'
 
 const POS_STYLE = {
   noun:        'bg-sky-500/15 text-sky-300 border-sky-500/25',
@@ -23,6 +24,7 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
   const [deleting, setDeleting] = useState(false)
   const [speaking, setSpeaking] = useState(null)
   const [draft, setDraft]       = useState({})
+  const [showConvo, setShowConvo] = useState(false)
 
   const startEdit = () => {
     setDraft({
@@ -135,6 +137,13 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
           <ErrorBoundary silent>
             <PronounceCheck word={w.word} wordId={w.id} token={token} apiBase={apiBase} compact />
           </ErrorBoundary>
+          {token && apiBase && (
+            <button onClick={() => setShowConvo(true)}
+              className="p-1.5 rounded-lg text-white/20 hover:text-violet-300 hover:bg-violet-500/10 transition-all opacity-0 group-hover:opacity-100"
+              title={t.convTitle}>
+              <ChatIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
           {(w.synonyms || w.antonyms || w.collocations) && onOpenMap && (
             <button onClick={() => onOpenMap(w)}
               className="p-1.5 rounded-lg text-white/20 hover:text-cyan-300 hover:bg-cyan-500/10 transition-all opacity-0 group-hover:opacity-100"
@@ -285,7 +294,21 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
           }
         </div>
       )}
+
+      {showConvo && (
+        <ErrorBoundary silent>
+          <ConversationModal word={w.word} wordId={w.id} token={token} apiBase={apiBase} onClose={() => setShowConvo(false)} />
+        </ErrorBoundary>
+      )}
     </article>
+  )
+}
+
+function ChatIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12a9 9 0 11-3.6-7.2L21 4l-.8 3.4A8.96 8.96 0 0121 12z" />
+    </svg>
   )
 }
 
