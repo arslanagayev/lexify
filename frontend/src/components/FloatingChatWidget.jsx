@@ -253,7 +253,7 @@ export default function FloatingChatWidget({ apiBase, token }) {
       {/* Floating action button */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-6 right-4 sm:right-6 z-50 w-14 h-14 rounded-full
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-14 h-14 rounded-full
                    bg-gradient-to-br from-violet-500 to-sky-500 shadow-lg shadow-violet-500/30
                    flex items-center justify-center text-white
                    hover:scale-105 active:scale-95 transition-transform"

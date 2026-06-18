@@ -22,6 +22,7 @@ import AdminPanel from './components/AdminPanel'
 import OnboardingTour from './components/OnboardingTour'
 import ImportListModal from './components/ImportListModal'
 import CoursesPage from './components/CoursesPage'
+import BottomNav from './components/BottomNav'
 import { langFlag } from './utils/languages'
 import StoryGeneratorModal from './components/StoryGeneratorModal'
 import { exportWordsPdf } from './utils/exportPdf'
@@ -469,7 +470,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                         total={words.length}
                         t={t}
                       />
-                      <div className="flex items-center gap-2 mt-5">
+                      <div className="flex items-center gap-2 mt-5 flex-wrap">
                         <select
                           value={sortBy}
                           onChange={e => setSortBy(e.target.value)}
@@ -569,6 +570,8 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       </main>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      <BottomNav mode={mode} onModeChange={setMode} isAdmin={user?.is_admin} />
 
       <FloatingChatWidget apiBase={API} token={token} />
 

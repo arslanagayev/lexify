@@ -10,7 +10,7 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-2xl bg-black/30">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center gap-2">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
         {/* Logo */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <img src={logoSrc} alt="Lexify" className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shadow-lg shadow-violet-500/25" />
@@ -27,8 +27,8 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
           )}
         </div>
 
-        {/* Mode nav — horizontally scrollable on mobile, centered on desktop */}
-        <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar flex justify-start sm:justify-center">
+        {/* Mode nav — desktop only; mobile uses the bottom nav bar */}
+        <div className="hidden md:flex flex-1 min-w-0 overflow-x-auto no-scrollbar justify-center">
           <div className="glass rounded-xl p-1 flex gap-1 shrink-0">
             {[
               { key: 'grid',     label: t.grid,     icon: <GridIcon /> },
