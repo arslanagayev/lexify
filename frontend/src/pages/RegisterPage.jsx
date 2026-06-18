@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useLang } from '../i18n/LangContext'
 import { AuthLayout } from './LoginPage'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -7,6 +8,7 @@ const RESEND_COOLDOWN = 30
 
 export default function RegisterPage({ onSwitchToLogin, onOpenSettings }) {
   const { login } = useAuth()
+  const { t } = useLang()
   const [step, setStep]         = useState('form')  // 'form' | 'verify'
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
@@ -204,7 +206,7 @@ export default function RegisterPage({ onSwitchToLogin, onOpenSettings }) {
           >
             <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${wantsTelegram ? 'translate-x-5' : ''}`} />
           </div>
-          <span className="text-sm text-white/50 select-none">Telegram botu kullanmak istiyorum</span>
+          <span className="text-sm text-white/50 select-none">{t.telegramWant}</span>
         </label>
 
         {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2">{error}</p>}

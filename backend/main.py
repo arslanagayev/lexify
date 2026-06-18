@@ -356,7 +356,7 @@ async def create_list_share(
     return {"code": code, "url": f"https://lexifyvocab.tech/shared/{code}"}
 
 
-@app.get("/shared/{code}")
+@app.get("/lists/shared/{code}")
 async def view_shared_list(code: str, db: AsyncSession = Depends(get_db)):
     data = await crud.get_shared_list(db, code)
     if not data:
@@ -364,7 +364,7 @@ async def view_shared_list(code: str, db: AsyncSession = Depends(get_db)):
     return data
 
 
-@app.post("/shared/{code}/import")
+@app.post("/lists/shared/{code}/import")
 async def import_shared(
     code: str,
     current_user: User = Depends(get_current_user),

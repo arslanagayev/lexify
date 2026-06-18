@@ -12,7 +12,7 @@ export default function SharedListPage() {
   const [result, setResult] = useState(null)
 
   useEffect(() => {
-    fetch(`${API}/shared/${code}`)
+    fetch(`${API}/lists/shared/${code}`)
       .then(r => { if (!r.ok) throw new Error(); return r.json() })
       .then(setData)
       .catch(() => setNotFound(true))
@@ -21,7 +21,7 @@ export default function SharedListPage() {
   const importList = async () => {
     setImporting(true)
     try {
-      const res = await fetch(`${API}/shared/${code}/import`, {
+      const res = await fetch(`${API}/lists/shared/${code}/import`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
