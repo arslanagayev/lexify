@@ -43,7 +43,13 @@ export default function MnemonicTip({ wordId, token, apiBase }) {
         <div className="mt-2">
           {loading
             ? <p className="text-white/30 text-xs">{t.mnemonicLoading}</p>
-            : <p className="text-white/55 text-sm leading-relaxed">{tip}</p>}
+            : <p className="text-white/55 text-sm leading-relaxed">
+                {(tip || '').split(/\*\*(.*?)\*\*/g).map((p, i) =>
+                  i % 2 === 1
+                    ? <strong key={i} className="font-bold text-violet-300">{p}</strong>
+                    : <span key={i}>{p}</span>
+                )}
+              </p>}
         </div>
       )}
     </div>

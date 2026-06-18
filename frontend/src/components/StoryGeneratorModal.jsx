@@ -43,21 +43,21 @@ export default function StoryGeneratorModal({ words, token, apiBase, onClose, ta
     }
   }
 
+  const stripMarkdown = (s) => (s || '').replace(/\*\*/g, '').replace(/[*_`#]/g, '')
+
   const readAloud = () => {
     if (!story) return
     setSpeaking(true)
-    speak(story, TTS_LOCALE[targetLang] || 'en-US', { onEnd: () => setSpeaking(false), onError: () => setSpeaking(false) })
+    speak(stripMarkdown(story), TTS_LOCALE[targetLang] || 'en-US',
+      { onEnd: () => setSpeaking(false), onError: () => setSpeaking(false) })
   }
 
-  // Render story with target words bolded
+  // Render **bold** markdown (works for any language, incl. CJK)
   const renderStory = () => {
     if (!story) return null
-    if (!usedWords.length) return story
-    const re = new RegExp(`\\b(${usedWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'gi')
-    const parts = story.split(re)
-    return parts.map((p, i) =>
-      usedWords.some(w => w.toLowerCase() === p.toLowerCase())
-        ? <strong key={i} className="text-violet-300">{p}</strong>
+    return story.split(/\*\*(.*?)\*\*/g).map((p, i) =>
+      i % 2 === 1
+        ? <strong key={i} className="font-bold text-violet-300">{p}</strong>
         : <span key={i}>{p}</span>
     )
   }

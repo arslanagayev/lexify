@@ -64,7 +64,13 @@ export default function ConversationModal({ word, wordId, token, apiBase, onClos
                 m.role === 'user'
                   ? 'bg-gradient-to-br from-violet-600/80 to-sky-600/80 text-white rounded-br-md'
                   : 'glass border-white/8 text-white/85 rounded-bl-md'
-              }`}>{m.content}</div>
+              }`}>{
+                m.role === 'user'
+                  ? m.content
+                  : (m.content || '').split(/\*\*(.*?)\*\*/g).map((p, j) =>
+                      j % 2 === 1 ? <strong key={j} className="font-bold text-violet-200">{p}</strong> : <span key={j}>{p}</span>
+                    )
+              }</div>
             </div>
           ))}
           {loading && (

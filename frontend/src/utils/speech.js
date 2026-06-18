@@ -32,9 +32,13 @@ function findVoice(lang) {
 export function speak(text, lang, callbacks = {}, rate = 0.88) {
   if (!window.speechSynthesis || !text?.trim()) return
 
+  // Never speak markdown symbols (**, *, _, `, #)
+  const clean = text.replace(/\*\*/g, '').replace(/[*_`#]/g, '').trim()
+  if (!clean) return
+
   window.speechSynthesis.cancel()
 
-  const utt = new SpeechSynthesisUtterance(text)
+  const utt = new SpeechSynthesisUtterance(clean)
   utt.lang = lang
   utt.rate = rate
 
