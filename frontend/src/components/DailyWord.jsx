@@ -1,10 +1,13 @@
 import { useLang } from '../i18n/LangContext'
 import { speak } from '../utils/speech'
 import { useState } from 'react'
+import { TTS_LOCALE } from '../utils/languages'
+import { topicLabel } from '../i18n/courseI18n'
 
-export default function DailyWord({ words }) {
-  const { t } = useLang()
+export default function DailyWord({ words, targetLang = 'en' }) {
+  const { t, lang } = useLang()
   const [speaking, setSpeaking] = useState(false)
+  const targetLocale = TTS_LOCALE[targetLang] || 'en-US'
 
   if (!words || words.length === 0) return null
 
@@ -13,7 +16,7 @@ export default function DailyWord({ words }) {
   const word = words[dayNum % words.length]
 
   const handleSpeak = () => {
-    speak(word.word, 'en-US', {
+    speak(word.word, targetLocale, {
       onStart: () => setSpeaking(true),
       onEnd:   () => setSpeaking(false),
       onError: () => setSpeaking(false),
@@ -60,7 +63,7 @@ export default function DailyWord({ words }) {
                     : 'border-white/10 text-white/30 hover:text-white/60 hover:border-white/20'}`}
               >
                 <SpeakerIcon className="w-3.5 h-3.5" />
-                en-US
+                {targetLocale}
               </button>
             </div>
 
@@ -84,7 +87,7 @@ export default function DailyWord({ words }) {
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {word.tags.split(',').map(tag => tag.trim()).filter(Boolean).map((tag, i) => (
                   <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300/70">
-                    {tag}
+                    {topicLabel(lang, tag)}
                   </span>
                 ))}
               </div>

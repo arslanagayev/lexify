@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLang, LANG_OPTIONS } from '../i18n/LangContext'
 import { useAuth } from '../context/AuthContext'
 import { langFlag } from '../utils/languages'
+import { levelLabel } from '../i18n/courseI18n'
 import logoSrc from '../assets/logo.png'
 
 export default function Header({ mode, onModeChange, count, streak, onLogout, onOpenAchievements, theme, onToggleTheme, activeCourse, onOpenCourses }) {
@@ -61,9 +62,14 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
             <button
               onClick={onOpenCourses}
               title="Courses"
-              className="glass rounded-xl px-2 sm:px-2.5 py-1.5 text-sm leading-none hover:bg-white/8 transition-colors"
+              className="glass rounded-xl px-2 sm:px-2.5 py-1.5 text-sm leading-none hover:bg-white/8 transition-colors flex items-center gap-1.5"
             >
-              {langFlag(activeCourse.base_language)}<span className="text-white/30 mx-0.5">→</span>{langFlag(activeCourse.target_language)}
+              <span>{langFlag(activeCourse.base_language)}<span className="text-white/30 mx-0.5">→</span>{langFlag(activeCourse.target_language)}</span>
+              {activeCourse.level && (
+                <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-200">
+                  {levelLabel(lang, activeCourse.level)}
+                </span>
+              )}
             </button>
           )}
 

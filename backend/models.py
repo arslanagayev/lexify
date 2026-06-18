@@ -165,6 +165,10 @@ class Course(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     base_language: Mapped[str] = mapped_column(String(5), nullable=False)
     target_language: Mapped[str] = mapped_column(String(5), nullable=False)
+    # CEFR "degree": beginner (A1-A2) | intermediate (B1-B2) | advanced (C1-C2)
+    level: Mapped[str] = mapped_column(
+        String(20), default="beginner", server_default="beginner", nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

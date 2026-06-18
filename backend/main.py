@@ -97,6 +97,20 @@ async def get_current_admin(current_user: User = Depends(get_current_user)) -> U
     return current_user
 
 
+async def _course_langs(db: AsyncSession, user: User, course_id: Optional[int] = None):
+    """Resolve (base_language, target_language, level) for a course.
+
+    Every AI feature reads this so it follows the active course's language pair
+    and chosen difficulty level. Falls back to the legacy zh→en/beginner default.
+    """
+    cid = course_id if course_id is not None else await crud.ensure_active_course(db, user)
+    course = await crud.get_course(db, user.id, cid) if cid else None
+    base = course.base_language if course else "zh"
+    target = course.target_language if course else "en"
+    level = (getattr(course, "level", None) or "beginner") if course else "beginner"
+    return base, target, level
+
+
 # ── Auth ──────────────────────────────────────────────────────
 
 @app.post("/auth/register", status_code=201)
@@ -493,7 +507,8 @@ async def get_active_course(
     c = await crud.get_course(db, current_user.id, cid)
     if not c:
         return {"active_course_id": None}
-    return {"id": c.id, "base_language": c.base_language, "target_language": c.target_language}
+    return {"id": c.id, "base_language": c.base_language, "target_language": c.target_language,
+            "level": getattr(c, "level", "beginner") or "beginner"}
 
 
 @app.post("/courses")
@@ -508,11 +523,26 @@ async def create_course(
         raise HTTPException(status_code=400, detail="Invalid language")
     if base == target:
         raise HTTPException(status_code=400, detail="Base and target must differ")
-    c = await crud.create_course(db, current_user.id, base, target)
+    c = await crud.create_course(db, current_user.id, base, target, level=body.level)
     if c is None:
         raise HTTPException(status_code=409, detail="You already have this course")
     await crud.activate_course(db, current_user, c.id)
-    return {"id": c.id, "base_language": c.base_language, "target_language": c.target_language}
+    return {"id": c.id, "base_language": c.base_language, "target_language": c.target_language,
+            "level": getattr(c, "level", "beginner") or "beginner"}
+
+
+@app.patch("/courses/{course_id}/level")
+async def update_course_level(
+    course_id: int,
+    body: schemas.CourseLevelUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ok = await crud.set_course_level(db, current_user, course_id, body.level)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Course not found")
+    from backend.languages import normalize_level
+    return {"id": course_id, "level": normalize_level(body.level)}
 
 
 @app.post("/courses/{course_id}/activate")
@@ -602,16 +632,14 @@ async def add_word(
         raise HTTPException(status_code=422, detail="Kelime geçersiz karakter içeriyor")
 
     cid = await crud.ensure_active_course(db, current_user)
-    course = await crud.get_course(db, current_user.id, cid)
-    base_lang = course.base_language if course else "zh"
-    target_lang = course.target_language if course else "en"
+    base_lang, target_lang, level = await _course_langs(db, current_user, cid)
 
     duplicate = await crud.get_word_by_text(db, word_str, user_id=current_user.id, course_id=cid)
     if duplicate:
         raise HTTPException(status_code=409, detail={"message": "Bu kelime zaten listenizde", "id": duplicate.id})
 
     try:
-        data = await enrich_word(word_str, base_lang=base_lang, target_lang=target_lang)
+        data = await enrich_word(word_str, base_lang=base_lang, target_lang=target_lang, level=level)
     except AIServiceLimitedError as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(
@@ -682,8 +710,9 @@ async def word_examples(
         except Exception:
             pass
     else:
+        base_lang, target_lang, level = await _course_langs(db, current_user, word.course_id)
         try:
-            extra = await generate_examples(word.word)
+            extra = await generate_examples(word.word, target_lang=target_lang, base_lang=base_lang, level=level)
         except Exception as e:
             asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
             extra = []
@@ -710,9 +739,7 @@ async def word_mnemonic(
         raise HTTPException(status_code=404, detail="Word not found")
     if word.mnemonic:
         return {"mnemonic": word.mnemonic, "cached": True}
-    course = await crud.get_course(db, current_user.id, word.course_id) if word.course_id else None
-    base_lang = course.base_language if course else "zh"
-    target_lang = course.target_language if course else "en"
+    base_lang, target_lang, level = await _course_langs(db, current_user, word.course_id)
     try:
         tip = await generate_mnemonic(word.word, word.chinese_meaning or "", target_lang=target_lang, base_lang=base_lang)
     except Exception as e:
@@ -738,8 +765,9 @@ async def word_family(
             return _json.loads(word.word_family)
         except Exception:
             pass
+    base_lang, target_lang, _level = await _course_langs(db, current_user, word.course_id)
     try:
-        data = await generate_word_family(word.word)
+        data = await generate_word_family(word.word, target_lang=target_lang, base_lang=base_lang)
     except Exception as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(
@@ -785,11 +813,9 @@ async def word_conversation(
         for m in body.messages
         if m.role in ("user", "assistant") and (m.content or "").strip()
     ][-10:]
-    course = await crud.get_course(db, current_user.id, word.course_id) if word.course_id else None
-    base_lang = course.base_language if course else "zh"
-    target_lang = course.target_language if course else "en"
+    base_lang, target_lang, level = await _course_langs(db, current_user, word.course_id)
     try:
-        reply = await conversation_reply(word.word, history, target_lang=target_lang, base_lang=base_lang)
+        reply = await conversation_reply(word.word, history, target_lang=target_lang, base_lang=base_lang, level=level)
     except Exception as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(status_code=503, detail={"error_code": "ai_service_limited", "message": str(e)})
@@ -815,11 +841,9 @@ async def story_generate(
     if len(words) < 2:
         raise HTTPException(status_code=422, detail="Select at least 2 valid words")
     cid = await crud.ensure_active_course(db, current_user)
-    course = await crud.get_course(db, current_user.id, cid)
-    base_lang = course.base_language if course else "zh"
-    target_lang = course.target_language if course else "en"
+    base_lang, target_lang, level = await _course_langs(db, current_user, cid)
     try:
-        result = await generate_story(words, target_lang=target_lang, base_lang=base_lang)
+        result = await generate_story(words, target_lang=target_lang, base_lang=base_lang, level=level)
     except Exception as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(status_code=503, detail={"error_code": "ai_service_limited", "message": str(e)})
@@ -843,8 +867,10 @@ async def practice_word(
         raise HTTPException(status_code=422, detail="Sentence cannot be empty")
     if len(sentence) > 500:
         raise HTTPException(status_code=422, detail="Sentence too long")
+    base_lang, target_lang, level = await _course_langs(db, current_user, word.course_id)
     try:
-        result = await evaluate_sentence(word.word, sentence)
+        result = await evaluate_sentence(word.word, sentence, target_lang=target_lang,
+                                         base_lang=base_lang, level=level)
     except Exception as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(
@@ -912,7 +938,7 @@ async def suggest_words(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await crud.suggest_cefr_words(db, current_user.id)
+    return await crud.suggest_cefr_words(db, current_user)
 
 
 @app.post("/words/import-file", response_model=schemas.FileImportResponse)
@@ -935,9 +961,7 @@ async def import_words_file(
         raise HTTPException(status_code=422, detail="No words found. Expected a 'word' column.")
 
     cid = await crud.ensure_active_course(db, current_user)
-    course = await crud.get_course(db, current_user.id, cid)
-    base_lang = course.base_language if course else "zh"
-    target_lang = course.target_language if course else "en"
+    base_lang, target_lang, level = await _course_langs(db, current_user, cid)
 
     imported, skipped, errors = 0, 0, []
 
@@ -952,7 +976,7 @@ async def import_words_file(
             skipped += 1
             return
         try:
-            data = await enrich_word(word_str, base_lang=base_lang, target_lang=target_lang)
+            data = await enrich_word(word_str, base_lang=base_lang, target_lang=target_lang, level=level)
         except Exception:
             errors.append(f"{word_str}: enrichment failed")
             return
@@ -981,7 +1005,8 @@ async def quiz_question(
     db: AsyncSession = Depends(get_db),
 ):
     cid = await crud.ensure_active_course(db, current_user)
-    q = await crud.get_quiz_question(db, user_id=current_user.id, course_id=cid)
+    q = await crud.get_quiz_question(db, user_id=current_user.id, course_id=cid,
+                                     lang=current_user.language_preference or "en")
     if q is None:
         raise HTTPException(status_code=422, detail="Need at least 2 words with meanings for quiz")
     return q

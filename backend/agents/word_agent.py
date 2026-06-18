@@ -393,11 +393,23 @@ def _dynamic_schema(base_name: str, target_name: str, phonetic_desc: str, exampl
     )
 
 
-def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh", target_lang: str = "en") -> str:
+_LEVEL_DESC = {
+    "beginner": "The learner is a beginner (CEFR A1-A2); when you generate an example "
+                "sentence, keep it short and use the most common words.",
+    "intermediate": "The learner is intermediate (CEFR B1-B2); generated example sentences "
+                    "may use moderately common vocabulary and natural structures.",
+    "advanced": "The learner is advanced (CEFR C1-C2); generated example sentences may use "
+                "richer vocabulary and more complex structures.",
+}
+
+
+def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh",
+                  target_lang: str = "en", level: str = "beginner") -> str:
     base_name = _LANG_NAMES.get(base_lang, "English")
     target_name = _LANG_NAMES.get(target_lang, "English")
     ph = _phonetic_desc(target_lang, target_name)
-    translate_rule = (
+    level_note = _LEVEL_DESC.get((level or "beginner").lower(), _LEVEL_DESC["beginner"]) + "\n\n"
+    translate_rule = level_note + (
         f'The learner speaks {base_name} and is learning {target_name}.\n'
         f'The learner entered this word (it may be written in {base_name} OR {target_name}): "{word}"\n'
         f'STEP 1: Determine the equivalent word in {target_name}. If the input is in {base_name}, '
@@ -434,7 +446,8 @@ def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh", tar
 # Ana fonksiyon
 # ---------------------------------------------------------------------------
 
-async def enrich_word(word: str, base_lang: str = "zh", target_lang: str = "en") -> dict:
+async def enrich_word(word: str, base_lang: str = "zh", target_lang: str = "en",
+                      level: str = "beginner") -> dict:
     """Enrich a word for a (base→target) course. News example search only runs
     for English targets; other targets get an AI-generated example sentence."""
     client = _get_client()
@@ -445,7 +458,7 @@ async def enrich_word(word: str, base_lang: str = "zh", target_lang: str = "en")
     # the AI generate the example after translating the word.
     if target_lang == "en" and base_lang == "zh":
         sentence, source_name, source_url = await _search_example(word)
-    prompt = _build_prompt(word, sentence, base_lang, target_lang)
+    prompt = _build_prompt(word, sentence, base_lang, target_lang, level)
 
     try:
         response = await client.chat.completions.create(

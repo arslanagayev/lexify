@@ -3,9 +3,12 @@ import { useLang } from '../i18n/LangContext'
 import { speak } from '../utils/speech'
 import PronounceCheck from './PronounceCheck'
 import ErrorBoundary from './ErrorBoundary'
+import { TTS_LOCALE } from '../utils/languages'
 
-export default function ReviewMode({ words, onReview, token, apiBase }) {
+export default function ReviewMode({ words, onReview, token, apiBase, targetLang = 'en', baseLang = 'zh' }) {
   const { t } = useLang()
+  const targetLocale = TTS_LOCALE[targetLang] || 'en-US'
+  const baseLocale = TTS_LOCALE[baseLang] || 'zh-CN'
   const [index, setIndex]           = useState(0)
   const [flipped, setFlipped]       = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -154,9 +157,9 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
       await delay(400)
       if (cancelRef.current) return
 
-      // Step 1: Read the English word
-      setAutoStep('🔊 en-US')
-      await speakAsync(current.word, 'en-US', 'word')
+      // Step 1: Read the target-language word
+      setAutoStep(`🔊 ${targetLocale}`)
+      await speakAsync(current.word, targetLocale, 'word')
       if (cancelRef.current) return
 
       // Step 2: Wait 2 s before flipping
@@ -170,10 +173,10 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
       await delay(350)
       if (cancelRef.current) return
 
-      // Step 4: Read Chinese meaning
+      // Step 4: Read meaning in the base language
       if (current.chinese_meaning) {
-        setAutoStep('🔊 zh-CN')
-        await speakAsync(current.chinese_meaning, 'zh-CN', 'zh')
+        setAutoStep(`🔊 ${baseLocale}`)
+        await speakAsync(current.chinese_meaning, baseLocale, 'zh')
         if (cancelRef.current) return
       }
 
@@ -313,7 +316,7 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
               <p className="font-mono text-white/35 text-xl mt-1">{current.phonetic}</p>
             )}
             <button
-              onClick={e => { e.stopPropagation(); handleSpeak(current.word, 'en-US', 'word') }}
+              onClick={e => { e.stopPropagation(); handleSpeak(current.word, targetLocale, 'word') }}
               className={`mt-6 flex items-center gap-2 px-4 py-2 rounded-xl text-sm border transition-all
                 ${speaking === 'word'
                   ? 'bg-violet-500/20 border-violet-400/40 text-violet-300'
@@ -350,8 +353,8 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
                     <button onClick={cycleExample} title={t.anotherExample}
                       className="text-white/30 hover:text-violet-300 transition-colors text-xs">🔄</button>
                     <SpeakMini active={speaking === 'en'}
-                      onClick={e => { e.stopPropagation(); handleSpeak(shownExample, 'en-US', 'en') }}
-                      label="en-US" />
+                      onClick={e => { e.stopPropagation(); handleSpeak(shownExample, targetLocale, 'en') }}
+                      label={targetLocale} />
                   </div>
                 </div>
                 <p className="text-white/60 text-sm italic leading-relaxed">"{shownExample}"</p>
@@ -360,8 +363,8 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
                   <div className="flex items-start justify-between gap-2 mt-3 pt-2.5 border-t border-white/5">
                     <p className="text-white/35 text-sm leading-relaxed">{current.chinese_translation}</p>
                     <SpeakMini active={speaking === 'zh'}
-                      onClick={e => { e.stopPropagation(); handleSpeak(current.chinese_translation, 'zh-CN', 'zh') }}
-                      label="zh-CN" />
+                      onClick={e => { e.stopPropagation(); handleSpeak(current.chinese_translation, baseLocale, 'zh') }}
+                      label={baseLocale} />
                   </div>
                 )}
               </div>
@@ -404,7 +407,7 @@ export default function ReviewMode({ words, onReview, token, apiBase }) {
       {!practiceMode && (
         <div className="flex flex-col items-center gap-2 mt-4">
           <ErrorBoundary silent>
-            <PronounceCheck word={current.word} wordId={current.id} token={token} apiBase={apiBase} />
+            <PronounceCheck word={current.word} wordId={current.id} token={token} apiBase={apiBase} targetLang={targetLang} />
           </ErrorBoundary>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-white/25">{t.ttsSpeed}</span>

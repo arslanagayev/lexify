@@ -59,7 +59,17 @@ def sanitize_history(messages: list) -> list[dict]:
     return history[-MAX_HISTORY:]
 
 
-_LANG_NAMES = {"en": "English", "tr": "Turkish", "ru": "Russian", "zh": "Chinese (Simplified)"}
+from backend.languages import LANGUAGES, level_descriptor
+
+# Names used inside AI prompts. Covers every course language, not just the 4 UI
+# languages, so a (base→target) pair like zh→es is described correctly.
+_LANG_NAMES = {code: info["name"] for code, info in LANGUAGES.items()}
+# Chinese reads better as "Chinese (Simplified)" in prompts.
+_LANG_NAMES["zh"] = "Chinese (Simplified)"
+
+
+def _lname(code: str) -> str:
+    return _LANG_NAMES.get(code, "English")
 
 
 async def chat_completion(history: list[dict], lang: str = "en") -> str:
@@ -79,24 +89,32 @@ async def chat_completion(history: list[dict], lang: str = "en") -> str:
 
 
 _PRACTICE_PROMPT = (
-    "You evaluate an English sentence written by a learner who is practicing a target word.\n"
-    "Target word: {word}\n"
+    "You evaluate a {target} sentence written by a learner who is practicing a target {target} word.\n"
+    "{level}\n"
+    "Target word ({target}): {word}\n"
     "Learner's sentence: {sentence}\n\n"
     "Check: (1) is the target word used correctly and meaningfully, (2) is the grammar correct.\n"
+    "Write the \"feedback\" and \"better_version\" so the learner understands: feedback in {base} "
+    "(the learner's own language); better_version is an improved {target} sentence.\n"
     "Return ONLY a JSON object, no markdown, with exactly these keys:\n"
-    '{{"is_correct_usage": bool, "grammar_ok": bool, "feedback": "one short helpful sentence", '
-    '"better_version": "an improved sentence or null if already good", "score": integer 1-10}}'
+    '{{"is_correct_usage": bool, "grammar_ok": bool, "feedback": "one short helpful sentence in {base}", '
+    '"better_version": "an improved {target} sentence or null if already good", "score": integer 1-10}}'
 )
 
 
-async def evaluate_sentence(word: str, sentence: str) -> dict:
+async def evaluate_sentence(word: str, sentence: str, target_lang: str = "en",
+                            base_lang: str = "zh", level: str = "beginner") -> dict:
     import json as _json
     client = _get_client()
+    tname = _lname(target_lang)
+    bname = _lname(base_lang)
     resp = await client.chat.completions.create(
         model="deepseek-chat",
         messages=[
-            {"role": "system", "content": "You are a strict but encouraging English teacher. Output JSON only."},
-            {"role": "user", "content": _PRACTICE_PROMPT.format(word=word, sentence=sentence)},
+            {"role": "system", "content": f"You are a strict but encouraging {tname} teacher. Output JSON only."},
+            {"role": "user", "content": _PRACTICE_PROMPT.format(
+                word=word, sentence=sentence, target=tname, base=bname,
+                level=level_descriptor(level, tname))},
         ],
         max_tokens=300,
         temperature=0.2,
@@ -123,11 +141,12 @@ async def evaluate_sentence(word: str, sentence: str) -> dict:
 
 
 _FAMILY_PROMPT = (
-    "For the English word \"{word}\", give its word family (related words from the same root) "
+    "For the {target} word \"{word}\", give its word family (related words from the same root) "
     "and the root origin.\n"
     "Return ONLY JSON, no markdown, with exactly these keys:\n"
-    '{{"root": "short root/origin description", "family": ["word1", "word2", ...]}}\n'
-    "Include 3-8 real derived/related English words in 'family' (not the word itself)."
+    '{{"root": "short root/origin description, written in {base}", "family": ["word1", "word2", ...]}}\n'
+    "Include 3-8 real derived/related {target} words in 'family' (not the word itself). "
+    "Every word in 'family' MUST be a {target} word."
 )
 
 
@@ -141,11 +160,13 @@ _CONVO_PROMPT = (
 )
 
 
-async def conversation_reply(word: str, history: list[dict], target_lang: str = "en", base_lang: str = "zh") -> str:
+async def conversation_reply(word: str, history: list[dict], target_lang: str = "en",
+                             base_lang: str = "zh", level: str = "beginner") -> str:
     client = _get_client()
-    tname = _LANG_NAMES.get(target_lang, "English")
-    bname = _LANG_NAMES.get(base_lang, "English")
-    msgs = [{"role": "system", "content": _CONVO_PROMPT.format(word=word, target=tname, base=bname)}]
+    tname = _lname(target_lang)
+    bname = _lname(base_lang)
+    system = _CONVO_PROMPT.format(word=word, target=tname, base=bname) + "\n" + level_descriptor(level, tname)
+    msgs = [{"role": "system", "content": system}]
     if not history:
         msgs.append({"role": "user", "content": "Let's begin."})
     else:
@@ -165,15 +186,16 @@ _STORY_PROMPT = (
 )
 
 
-async def generate_story(words: list[str], target_lang: str = "en", base_lang: str = "zh") -> dict:
+async def generate_story(words: list[str], target_lang: str = "en", base_lang: str = "zh",
+                         level: str = "beginner") -> dict:
     import json as _json
     client = _get_client()
-    tname = _LANG_NAMES.get(target_lang, "English")
-    bname = _LANG_NAMES.get(base_lang, "English")
+    tname = _lname(target_lang)
+    bname = _lname(base_lang)
     resp = await client.chat.completions.create(
         model="deepseek-chat",
         messages=[
-            {"role": "system", "content": f"You are a creative {tname} writing assistant for language learners. Output JSON only."},
+            {"role": "system", "content": f"You are a creative {tname} writing assistant for language learners. {level_descriptor(level, tname)} Output JSON only."},
             {"role": "user", "content": _STORY_PROMPT.format(target=tname, base=bname, words=", ".join(words))},
         ],
         max_tokens=600, temperature=0.7,
@@ -187,20 +209,24 @@ async def generate_story(words: list[str], target_lang: str = "en", base_lang: s
 
 
 _EXAMPLES_PROMPT = (
-    "Write 3 natural English example sentences using the word \"{word}\", each in a "
-    "different everyday context. Return ONLY JSON, no markdown:\n"
+    "Write 3 natural {target} example sentences using the {target} word \"{word}\", each in a "
+    "different everyday context. {level} Every sentence MUST be written in {target}. "
+    "Return ONLY JSON, no markdown:\n"
     '{{"examples": ["sentence 1", "sentence 2", "sentence 3"]}}'
 )
 
 
-async def generate_examples(word: str) -> list[str]:
+async def generate_examples(word: str, target_lang: str = "en", base_lang: str = "zh",
+                            level: str = "beginner") -> list[str]:
     import json as _json
     client = _get_client()
+    tname = _lname(target_lang)
     resp = await client.chat.completions.create(
         model="deepseek-chat",
         messages=[
-            {"role": "system", "content": "You are an English teacher. Output JSON only."},
-            {"role": "user", "content": _EXAMPLES_PROMPT.format(word=word)},
+            {"role": "system", "content": f"You are a {tname} teacher. Output JSON only."},
+            {"role": "user", "content": _EXAMPLES_PROMPT.format(
+                word=word, target=tname, level=level_descriptor(level, tname))},
         ],
         max_tokens=300,
         temperature=0.5,
@@ -223,8 +249,8 @@ _MNEMONIC_PROMPT = (
 
 async def generate_mnemonic(word: str, meaning: str = "", target_lang: str = "en", base_lang: str = "zh") -> str:
     client = _get_client()
-    tname = _LANG_NAMES.get(target_lang, "English")
-    bname = _LANG_NAMES.get(base_lang, "English")
+    tname = _lname(target_lang)
+    bname = _lname(base_lang)
     m = f" (meaning: {meaning})" if meaning else ""
     resp = await client.chat.completions.create(
         model="deepseek-chat",
@@ -237,14 +263,66 @@ async def generate_mnemonic(word: str, meaning: str = "", target_lang: str = "en
     return resp.choices[0].message.content.strip()
 
 
-async def generate_word_family(word: str) -> dict:
+_DISCOVER_PROMPT = (
+    "Suggest {count} useful {target} vocabulary words for a learner whose level in {target} "
+    "is {cefr} ({bucket}). Choose words appropriate for that level — common everyday words for "
+    "beginners, rarer/more nuanced words for advanced.\n"
+    "The learner already knows these words, so do NOT include any of them: {known}\n"
+    "Return ONLY JSON, no markdown:\n"
+    '{{"suggestions": [{{"word": "the {target} word", "level": "one CEFR code A1-C2", '
+    '"brief_meaning": "a very short meaning written in {base}"}}]}}'
+)
+
+
+async def generate_discover_words(target_lang: str, base_lang: str, bucket: str,
+                                  cefr: str, known: list[str], count: int = 10) -> list[dict]:
+    """AI-generate level-appropriate target-language vocabulary suggestions."""
     import json as _json
     client = _get_client()
+    tname = _lname(target_lang)
+    bname = _lname(base_lang)
+    known_str = ", ".join(sorted(known)[:60]) or "(none yet)"
     resp = await client.chat.completions.create(
         model="deepseek-chat",
         messages=[
-            {"role": "system", "content": "You are an English etymology expert. Output JSON only."},
-            {"role": "user", "content": _FAMILY_PROMPT.format(word=word)},
+            {"role": "system", "content": f"You are a {tname} vocabulary curator for language learners. Output JSON only."},
+            {"role": "user", "content": _DISCOVER_PROMPT.format(
+                count=count, target=tname, base=bname, cefr=cefr, bucket=bucket, known=known_str)},
+        ],
+        max_tokens=700,
+        temperature=0.6,
+        response_format={"type": "json_object"},
+    )
+    try:
+        data = _json.loads(resp.choices[0].message.content)
+    except Exception:
+        return []
+    out = []
+    known_lower = {k.lower() for k in known}
+    for s in data.get("suggestions", []):
+        if not isinstance(s, dict):
+            continue
+        word = str(s.get("word", "")).strip()
+        if not word or word.lower() in known_lower:
+            continue
+        out.append({
+            "word": word,
+            "level": str(s.get("level", "")).strip().upper()[:2] or "B1",
+            "brief_meaning": str(s.get("brief_meaning", "")).strip(),
+        })
+    return out[:count]
+
+
+async def generate_word_family(word: str, target_lang: str = "en", base_lang: str = "zh") -> dict:
+    import json as _json
+    client = _get_client()
+    tname = _lname(target_lang)
+    bname = _lname(base_lang)
+    resp = await client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": f"You are a {tname} etymology expert. Output JSON only."},
+            {"role": "user", "content": _FAMILY_PROMPT.format(word=word, target=tname, base=bname)},
         ],
         max_tokens=250,
         temperature=0.2,

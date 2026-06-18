@@ -301,6 +301,11 @@ class LanguageRequest(BaseModel):
 class CourseCreate(BaseModel):
     base_language: str
     target_language: str
+    level: str = "beginner"  # beginner | intermediate | advanced
+
+
+class CourseLevelUpdate(BaseModel):
+    level: str
 
 
 class ShareListRequest(BaseModel):

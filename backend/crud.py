@@ -955,6 +955,7 @@ async def list_courses(db: AsyncSession, user_id: int) -> list[dict]:
         )).scalar() or 0
         out.append({
             "id": c.id, "base_language": c.base_language, "target_language": c.target_language,
+            "level": getattr(c, "level", "beginner") or "beginner",
             "word_count": n,
         })
     return out
@@ -966,19 +967,32 @@ async def get_course(db: AsyncSession, user_id: int, course_id: int):
     return r.scalar_one_or_none()
 
 
-async def create_course(db: AsyncSession, user_id: int, base: str, target: str):
+async def create_course(db: AsyncSession, user_id: int, base: str, target: str,
+                        level: str = "beginner"):
     from backend.models import Course
+    from backend.languages import normalize_level
     existing = await db.execute(
         select(Course).where(Course.user_id == user_id,
                              Course.base_language == base, Course.target_language == target)
     )
     if existing.scalar_one_or_none():
         return None  # duplicate
-    c = Course(user_id=user_id, base_language=base, target_language=target)
+    c = Course(user_id=user_id, base_language=base, target_language=target,
+               level=normalize_level(level))
     db.add(c)
     await db.commit()
     await db.refresh(c)
     return c
+
+
+async def set_course_level(db: AsyncSession, user: User, course_id: int, level: str) -> bool:
+    from backend.languages import normalize_level
+    c = await get_course(db, user.id, course_id)
+    if not c:
+        return False
+    c.level = normalize_level(level)
+    await db.commit()
+    return True
 
 
 async def activate_course(db: AsyncSession, user: User, course_id: int) -> bool:
@@ -1095,32 +1109,61 @@ async def estimate_user_cefr_level(db: AsyncSession, user_id: int) -> str:
     return _CEFR_ORDER[idx]
 
 
-async def suggest_cefr_words(db: AsyncSession, user_id: int, limit: int = 10) -> dict:
+async def suggest_cefr_words(db: AsyncSession, user: User, limit: int = 10) -> dict:
+    """Suggest new words in the active course's TARGET language, matched to the
+    course's chosen level. English targets use the curated CEFR table; other
+    target languages are served by the AI (no English-only table exists for them)."""
     from backend.models import CefrWord
-    level = await estimate_user_cefr_level(db, user_id)
-    target_num = _CEFR_NUM[level]
-    target_levels = {lvl for lvl, n in _CEFR_NUM.items() if abs(n - target_num) <= 1}
+    from backend.languages import normalize_level, LEVEL_INFO, LEVEL_CEFR_BANDS
 
-    words = await get_words(db, user_id=user_id)
+    cid = await ensure_active_course(db, user)
+    course = await get_course(db, user.id, cid) if cid else None
+    target_lang = course.target_language if course else "en"
+    base_lang = course.base_language if course else "zh"
+    level = normalize_level(getattr(course, "level", None) if course else None)
+    bands = LEVEL_CEFR_BANDS[level]
+    cefr_label = LEVEL_INFO[level]["cefr"]
+
+    words = await get_words(db, user_id=user.id, course_id=cid)
     user_set = {w.word.lower().strip() for w in words}
 
-    rows = await db.execute(select(CefrWord))
-    candidates = [
-        c for c in rows.scalars().all()
-        if c.level in target_levels and c.word.lower() not in user_set
-    ]
-    # Prefer the user's exact level, then neighbours
-    candidates.sort(key=lambda c: abs(_CEFR_NUM[c.level] - target_num))
-    top = candidates[:limit * 3]
-    random.shuffle(top)
-    chosen = top[:limit]
-    return {
-        "level": level,
-        "suggestions": [
-            {"word": c.word, "level": c.level, "brief_meaning": c.meaning}
-            for c in chosen
-        ],
-    }
+    # English target → curated CEFR word table, filtered to the level's bands.
+    if target_lang == "en":
+        target_levels = set(bands)
+        rows = await db.execute(select(CefrWord))
+        candidates = [
+            c for c in rows.scalars().all()
+            if c.level in target_levels and c.word.lower() not in user_set
+        ]
+        # Fall back to neighbouring bands if the level is sparse.
+        if len(candidates) < limit:
+            mid = sum(_CEFR_NUM[b] for b in bands) / len(bands)
+            extra = [
+                c for c in (await db.execute(select(CefrWord))).scalars().all()
+                if c.word.lower() not in user_set and c.level not in target_levels
+            ]
+            extra.sort(key=lambda c: abs(_CEFR_NUM[c.level] - mid))
+            candidates += extra[: (limit * 3 - len(candidates))]
+        random.shuffle(candidates)
+        chosen = candidates[:limit]
+        return {
+            "level": cefr_label,
+            "suggestions": [
+                {"word": c.word, "level": c.level, "brief_meaning": c.meaning}
+                for c in chosen
+            ],
+        }
+
+    # Non-English target → AI generates level-appropriate words in that language.
+    from backend.chat import generate_discover_words
+    try:
+        suggestions = await generate_discover_words(
+            target_lang=target_lang, base_lang=base_lang, bucket=level,
+            cefr=cefr_label, known=list(user_set), count=limit,
+        )
+    except Exception:
+        suggestions = []
+    return {"level": cefr_label, "suggestions": suggestions}
 
 
 async def get_due_review_words(

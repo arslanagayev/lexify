@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../i18n/LangContext'
 import { LANGUAGES, LANG_CODES, langFlag, langName } from '../utils/languages'
+import { LEVELS, LEVEL_CEFR, levelLabel, levelPrompt, levelChooseLabel } from '../i18n/courseI18n'
 
 export default function CoursesPage({ apiBase, token, onCourseChange }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [data, setData] = useState(null)         // {courses, active_course_id}
   const [creating, setCreating] = useState(false)
   const [expandedBase, setExpandedBase] = useState(null)
+  const [pendingPair, setPendingPair] = useState(null)  // {base, target} awaiting level
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
@@ -30,19 +32,32 @@ export default function CoursesPage({ apiBase, token, onCourseChange }) {
     } finally { setBusy(false) }
   }
 
-  const createCourse = async (base, target) => {
+  const createCourse = async (base, target, level) => {
     if (busy) return
     setBusy(true); setError(null)
     try {
       const res = await fetch(`${apiBase}/courses`, {
-        method: 'POST', headers, body: JSON.stringify({ base_language: base, target_language: target }),
+        method: 'POST', headers,
+        body: JSON.stringify({ base_language: base, target_language: target, level }),
       })
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
         setError(res.status === 409 ? t.courseExists : (d.detail || t.courseError))
         return
       }
-      setCreating(false); setExpandedBase(null)
+      setCreating(false); setExpandedBase(null); setPendingPair(null)
+      onCourseChange?.()
+      load()
+    } finally { setBusy(false) }
+  }
+
+  const changeLevel = async (id, level) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      await fetch(`${apiBase}/courses/${id}/level`, {
+        method: 'PATCH', headers, body: JSON.stringify({ level }),
+      })
       onCourseChange?.()
       load()
     } finally { setBusy(false) }
@@ -96,7 +111,23 @@ export default function CoursesPage({ apiBase, token, onCourseChange }) {
                   </span>
                 )}
               </div>
-              <p className="text-white/40 text-sm mb-4">{t.courseWordCount(c.word_count)}</p>
+              <p className="text-white/40 text-sm mb-3">{t.courseWordCount(c.word_count)}</p>
+
+              {/* Level selector */}
+              <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+                {LEVELS.map(lv => (
+                  <button key={lv} onClick={() => changeLevel(c.id, lv)} disabled={busy}
+                    title={LEVEL_CEFR[lv]}
+                    className={`text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                      (c.level || 'beginner') === lv
+                        ? 'bg-violet-500/20 border-violet-500/45 text-violet-200'
+                        : 'border-white/10 text-white/40 hover:text-white/70'
+                    }`}>
+                    {levelLabel(lang, lv)}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex gap-2">
                 {c.id !== data.active_course_id && (
                   <button onClick={() => activate(c.id)} disabled={busy}
@@ -115,39 +146,68 @@ export default function CoursesPage({ apiBase, token, onCourseChange }) {
       ) : (
         <div className="glass rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-white/80 font-semibold">{t.courseWhichSpeak}</h3>
-            <button onClick={() => { setCreating(false); setExpandedBase(null); setError(null) }}
-              className="text-white/40 hover:text-white text-sm">✕</button>
+            <h3 className="text-white/80 font-semibold">
+              {pendingPair ? levelPrompt(lang, langName(pendingPair.target)) : t.courseWhichSpeak}
+            </h3>
+            <button onClick={() => {
+              if (pendingPair) { setPendingPair(null) }
+              else { setCreating(false); setExpandedBase(null) }
+              setError(null)
+            }}
+              className="text-white/40 hover:text-white text-sm">{pendingPair ? '←' : '✕'}</button>
           </div>
           {error && <p className="text-red-400/80 text-xs mb-3">{error}</p>}
-          <div className="space-y-2">
-            {LANG_CODES.map(base => (
-              <div key={base} className="rounded-xl border border-white/8 overflow-hidden">
-                <button
-                  onClick={() => setExpandedBase(expandedBase === base ? null : base)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
-                  <span className="text-sm text-white/80">{langFlag(base)} {t.courseForSpeakers(LANGUAGES[base].name)}</span>
-                  <span className={`text-white/30 transition-transform ${expandedBase === base ? 'rotate-180' : ''}`}>▾</span>
-                </button>
-                {expandedBase === base && (
-                  <div className="px-3 pb-3 pt-1 flex flex-wrap gap-2">
-                    {LANG_CODES.filter(tg => tg !== base).map(tg => {
-                      const owned = ownedTargetsByBase[base]?.has(tg)
-                      return (
-                        <button key={tg} disabled={owned || busy} onClick={() => createCourse(base, tg)}
-                          className={`text-sm px-3 py-1.5 rounded-full border transition-all ${
-                            owned ? 'border-white/5 text-white/25 cursor-default'
-                                  : 'border-white/15 text-white/70 hover:text-white hover:border-violet-400/40'
-                          }`}>
-                          {langFlag(tg)} {langName(tg)}{owned ? ' ✓' : ''}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
+
+          {pendingPair ? (
+            /* Step 2: choose the learner's level in the target language */
+            <div>
+              <p className="text-white/50 text-sm mb-4">
+                {langFlag(pendingPair.base)} {langName(pendingPair.base)}
+                <span className="text-white/30 mx-1.5">→</span>
+                {langFlag(pendingPair.target)} {langName(pendingPair.target)}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {LEVELS.map(lv => (
+                  <button key={lv} disabled={busy}
+                    onClick={() => createCourse(pendingPair.base, pendingPair.target, lv)}
+                    className="rounded-2xl border border-white/12 hover:border-violet-400/50 hover:bg-violet-500/5 p-4 text-left transition-all disabled:opacity-50">
+                    <div className="text-white font-semibold">{levelLabel(lang, lv)}</div>
+                    <div className="text-white/35 text-xs mt-0.5 font-mono">{LEVEL_CEFR[lv]}</div>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            /* Step 1: choose the language the learner already speaks */
+            <div className="space-y-2">
+              {LANG_CODES.map(base => (
+                <div key={base} className="rounded-xl border border-white/8 overflow-hidden">
+                  <button
+                    onClick={() => setExpandedBase(expandedBase === base ? null : base)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
+                    <span className="text-sm text-white/80">{langFlag(base)} {t.courseForSpeakers(LANGUAGES[base].name)}</span>
+                    <span className={`text-white/30 transition-transform ${expandedBase === base ? 'rotate-180' : ''}`}>▾</span>
+                  </button>
+                  {expandedBase === base && (
+                    <div className="px-3 pb-3 pt-1 flex flex-wrap gap-2">
+                      {LANG_CODES.filter(tg => tg !== base).map(tg => {
+                        const owned = ownedTargetsByBase[base]?.has(tg)
+                        return (
+                          <button key={tg} disabled={owned || busy} onClick={() => { setError(null); setPendingPair({ base, target: tg }) }}
+                            className={`text-sm px-3 py-1.5 rounded-full border transition-all ${
+                              owned ? 'border-white/5 text-white/25 cursor-default'
+                                    : 'border-white/15 text-white/70 hover:text-white hover:border-violet-400/40'
+                            }`}>
+                            {langFlag(tg)} {langName(tg)}{owned ? ' ✓' : ''}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

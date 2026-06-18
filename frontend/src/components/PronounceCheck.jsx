@@ -1,13 +1,20 @@
 import { useState, useRef } from 'react'
 import { useLang } from '../i18n/LangContext'
 import { speak } from '../utils/speech'
+import { TTS_LOCALE } from '../utils/languages'
 
 const SR = typeof window !== 'undefined'
   ? (window.SpeechRecognition || window.webkitSpeechRecognition)
   : null
 
+// Keep letters from ANY script (Latin, Cyrillic, Han, …) so pronunciation
+// checking works for every course target language, not just English.
 function normalize(s) {
-  return (s || '').toLowerCase().trim().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ')
+  try {
+    return (s || '').toLowerCase().trim().replace(/[^\p{L}\s]/gu, '').replace(/\s+/g, ' ')
+  } catch {
+    return (s || '').toLowerCase().trim().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ')
+  }
 }
 
 function levenshtein(a, b) {
@@ -22,8 +29,9 @@ function levenshtein(a, b) {
   return dp[m][n]
 }
 
-export default function PronounceCheck({ word, wordId, token, apiBase, compact }) {
+export default function PronounceCheck({ word, wordId, token, apiBase, compact, targetLang = 'en' }) {
   const { t } = useLang()
+  const targetLocale = TTS_LOCALE[targetLang] || 'en-US'
   const [listening, setListening] = useState(false)
   const [result, setResult] = useState(null) // {type:'ok'|'close'|'bad', heard}
   const recRef = useRef(null)
@@ -46,7 +54,7 @@ export default function PronounceCheck({ word, wordId, token, apiBase, compact }
     setResult(null)
     const rec = new SR()
     recRef.current = rec
-    rec.lang = 'en-US'
+    rec.lang = targetLocale
     rec.interimResults = false
     rec.maxAlternatives = 3
     rec.onresult = (e) => {
@@ -61,7 +69,7 @@ export default function PronounceCheck({ word, wordId, token, apiBase, compact }
         setResult({ type: 'close', heard })
       } else {
         setResult({ type: 'bad', heard })
-        speak(word, 'en-US')
+        speak(word, targetLocale)
       }
     }
     rec.onerror = () => { setResult({ type: 'bad', heard: '' }); setListening(false) }

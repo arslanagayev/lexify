@@ -24,6 +24,7 @@ import ImportListModal from './components/ImportListModal'
 import CoursesPage from './components/CoursesPage'
 import BottomNav from './components/BottomNav'
 import { langFlag } from './utils/languages'
+import { topicLabel } from './i18n/courseI18n'
 import StoryGeneratorModal from './components/StoryGeneratorModal'
 import { exportWordsPdf } from './utils/exportPdf'
 import WordMapModal from './components/WordMapModal'
@@ -461,7 +462,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
               <>
                 {mode === 'grid' && (
                   <>
-                    <DailyWord words={words} />
+                    <DailyWord words={words} targetLang={activeCourse?.target_language || 'en'} />
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <FilterBar
                         active={masteryFilter}
@@ -531,6 +532,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                         active={tagFilter}
                         onChange={setTagFilter}
                         t={t}
+                        lang={lang}
                       />
                     )}
                     <WordGrid
@@ -550,7 +552,9 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                   </>
                 )}
                 {mode === 'review' && (
-                  <ReviewMode words={words} onReview={handleReview} token={token} apiBase={API} />
+                  <ReviewMode words={words} onReview={handleReview} token={token} apiBase={API}
+                    targetLang={activeCourse?.target_language || 'en'}
+                    baseLang={activeCourse?.base_language || 'zh'} />
                 )}
                 {mode === 'quiz' && (
                   <QuizMode words={words} token={token} />
@@ -679,7 +683,7 @@ function FilterBar({ active, onChange, counts, total, t }) {
   )
 }
 
-function TagFilter({ tags, active, onChange, t }) {
+function TagFilter({ tags, active, onChange, t, lang }) {
   return (
     <div className="flex items-center gap-2 mt-4 flex-wrap">
       <button
@@ -702,7 +706,7 @@ function TagFilter({ tags, active, onChange, t }) {
               : 'border-white/10 text-white/35 hover:text-white/60'
           }`}
         >
-          {tag}
+          {topicLabel(lang, tag)}
         </button>
       ))}
     </div>
