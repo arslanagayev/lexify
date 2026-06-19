@@ -466,7 +466,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
               <>
                 {mode === 'grid' && (
                   <>
-                    <DailyWord words={words} targetLang={activeCourse?.target_language || 'en'} level={activeCourse?.level} />
+                    <DailyWord words={words} targetLang={activeCourse?.target_language || 'en'} baseLang={activeCourse?.base_language || 'zh'} level={activeCourse?.level} />
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <FilterBar
                         active={masteryFilter}

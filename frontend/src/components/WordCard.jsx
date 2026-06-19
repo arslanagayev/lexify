@@ -172,12 +172,13 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
 
       {/* ── Word title + phonetic ── */}
       <div className="-mt-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <h2 className="text-2xl font-bold text-white tracking-tight break-words">{w.word}</h2>
           <SpeakBtn
             active={speaking === 'word'}
             onClick={() => handleSpeak(w.word, targetLocale, 'word')}
-            compact title={t.pronounce}
+            label={targetLocale}
+            title={t.pronounce}
           />
         </div>
         {w.phonetic && (
