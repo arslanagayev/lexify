@@ -10,6 +10,16 @@ from __future__ import annotations
 
 class AIServiceLimitedError(RuntimeError):
     """Raised when the DeepSeek API is unavailable for any reason."""
+
+
+class NotTargetLanguageError(ValueError):
+    """Raised when the entered word does not belong to the course's language
+    pair (i.e. it is clearly a word from some other language)."""
+    def __init__(self, word: str, target_lang: str, reason: str = ""):
+        self.word = word
+        self.target_lang = target_lang
+        self.reason = reason
+        super().__init__(reason or f"'{word}' is not a valid {target_lang} word")
 import asyncio
 import json
 import os
@@ -377,6 +387,7 @@ def _phonetic_desc(target_lang: str, target_name: str) -> str:
 def _dynamic_schema(base_name: str, target_name: str, phonetic_desc: str, example_desc: str, translation_desc: str) -> str:
     return (
         "{\n"
+        '  "is_valid_target_language": true,\n'
         f'  "word": "canonical form of the {target_name} word",\n'
         f'  "phonetic": "{phonetic_desc}",\n'
         '  "part_of_speech": "one of: noun, verb, adjective, adverb, preposition, conjunction, interjection",\n'
@@ -411,7 +422,17 @@ def _build_prompt(word: str, sentence: Optional[str], base_lang: str = "zh",
     level_note = _LEVEL_DESC.get((level or "beginner").lower(), _LEVEL_DESC["beginner"]) + "\n\n"
     translate_rule = level_note + (
         f'The learner speaks {base_name} and is learning {target_name}.\n'
-        f'The learner entered this word (it may be written in {base_name} OR {target_name}): "{word}"\n'
+        f'The learner entered this word (it may be written in {base_name} OR {target_name}): "{word}"\n\n'
+        f'STEP 0 — VALIDATION: Decide whether "{word}" belongs to this course.\n'
+        f'  It is VALID (is_valid_target_language = true) if it is a real word in {target_name}, '
+        f'OR a real word in {base_name} that can be translated into {target_name}. '
+        f'Well-known proper nouns and common loanwords count as valid. Be lenient.\n'
+        f'  It is INVALID (is_valid_target_language = false) only if it is clearly a word from some '
+        f'OTHER language (neither {base_name} nor {target_name}) or is not a real word at all. '
+        f'For example, a Turkish word in an English course is invalid.\n'
+        f'  If INVALID, return ONLY this and nothing else: '
+        f'{{"is_valid_target_language": false, "reason": "<short reason>"}}\n\n'
+        f'If VALID, set "is_valid_target_language": true and continue:\n'
         f'STEP 1: Determine the equivalent word in {target_name}. If the input is in {base_name}, '
         f'translate it to {target_name} and pick the single most common {target_name} equivalent.\n'
         f'STEP 2: Build the JSON about that {target_name} word.\n'
@@ -473,6 +494,11 @@ async def enrich_word(word: str, base_lang: str = "zh", target_lang: str = "en",
         )
         text = response.choices[0].message.content or "{}"
         data = json.loads(text)
+
+        # Reject words that don't belong to the course's language pair.
+        if data.get("is_valid_target_language") is False:
+            raise NotTargetLanguageError(word, target_lang, str(data.get("reason", "")))
+
         data.setdefault("word", word)
 
         # Gerçek cümle bulunduysa Python tarafında garantile
@@ -485,6 +511,8 @@ async def enrich_word(word: str, base_lang: str = "zh", target_lang: str = "en",
 
         return data
 
+    except NotTargetLanguageError:
+        raise
     except json.JSONDecodeError as e:
         raise AIServiceLimitedError(f"DeepSeek returned invalid JSON: {e}") from e
     except Exception as e:

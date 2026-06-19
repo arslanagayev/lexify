@@ -23,7 +23,7 @@ import OnboardingTour from './components/OnboardingTour'
 import ImportListModal from './components/ImportListModal'
 import CoursesPage from './components/CoursesPage'
 import BottomNav from './components/BottomNav'
-import { langFlag } from './utils/languages'
+import { langFlag, langName } from './utils/languages'
 import { topicLabel } from './i18n/courseI18n'
 import StoryGeneratorModal from './components/StoryGeneratorModal'
 import { exportWordsPdf } from './utils/exportPdf'
@@ -323,6 +323,10 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         const detail = err.detail || {}
+        if (detail.error_code === 'not_target_language') {
+          setAddError(t.notTargetLang(detail.word || word.trim(), langName(detail.target_language)))
+          return
+        }
         if (detail.error_code === 'ai_service_limited') throw new Error('ai_service_limited')
         throw new Error(detail.message || (typeof detail === 'string' ? detail : null) || `HTTP ${res.status}`)
       }
@@ -336,7 +340,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
     } finally {
       setAdding(false)
     }
-  }, [authHeaders, handleUnauth, fetchStreak])
+  }, [authHeaders, handleUnauth, fetchStreak, t])
 
   const handleUpdate = useCallback(async (id, updates) => {
     const res = await fetch(`${API}/words/${id}`, {

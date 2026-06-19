@@ -23,7 +23,7 @@ from backend.auth import (
     send_weekly_summary_email,
 )
 import asyncio
-from backend.agents.word_agent import enrich_word, AIServiceLimitedError
+from backend.agents.word_agent import enrich_word, AIServiceLimitedError, NotTargetLanguageError
 from backend.ai_alerts import send_ai_alert
 from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
@@ -640,6 +640,16 @@ async def add_word(
 
     try:
         data = await enrich_word(word_str, base_lang=base_lang, target_lang=target_lang, level=level)
+    except NotTargetLanguageError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": "not_target_language",
+                "word": word_str,
+                "target_language": target_lang,
+                "reason": e.reason,
+            },
+        )
     except AIServiceLimitedError as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(
@@ -977,6 +987,10 @@ async def import_words_file(
             return
         try:
             data = await enrich_word(word_str, base_lang=base_lang, target_lang=target_lang, level=level)
+        except NotTargetLanguageError:
+            from backend.languages import lang_name
+            errors.append(f"{word_str}: not a {lang_name(target_lang)} word")
+            return
         except Exception:
             errors.append(f"{word_str}: enrichment failed")
             return
@@ -1105,6 +1119,12 @@ async def telegram_add_word(body: schemas.TelegramWordRequest, db: AsyncSession 
     target_lang = course.target_language if course else "en"
     try:
         data = await enrich_word(body.word.strip(), base_lang=base_lang, target_lang=target_lang)
+    except NotTargetLanguageError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": "not_target_language", "word": body.word.strip(),
+                    "target_language": target_lang, "reason": e.reason},
+        )
     except AIServiceLimitedError as e:
         asyncio.create_task(asyncio.to_thread(send_ai_alert, str(e)))
         raise HTTPException(
