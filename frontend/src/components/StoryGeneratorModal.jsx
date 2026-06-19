@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useLang } from '../i18n/LangContext'
-import { speak } from '../utils/speech'
+import { speak, rateForLevel } from '../utils/speech'
 import { TTS_LOCALE } from '../utils/languages'
 
-export default function StoryGeneratorModal({ words, token, apiBase, onClose, targetLang = 'en' }) {
+export default function StoryGeneratorModal({ words, token, apiBase, onClose, targetLang = 'en', level }) {
   const { t } = useLang()
   const [selected, setSelected] = useState(new Set())
   const [loading, setLoading] = useState(false)
@@ -49,7 +49,7 @@ export default function StoryGeneratorModal({ words, token, apiBase, onClose, ta
     if (!story) return
     setSpeaking(true)
     speak(stripMarkdown(story), TTS_LOCALE[targetLang] || 'en-US',
-      { onEnd: () => setSpeaking(false), onError: () => setSpeaking(false) })
+      { onEnd: () => setSpeaking(false), onError: () => setSpeaking(false) }, rateForLevel(level))
   }
 
   // Render **bold** markdown (works for any language, incl. CJK)

@@ -1,7 +1,7 @@
 import WordCard from './WordCard'
 import { useLang } from '../i18n/LangContext'
 
-export default function WordGrid({ words, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, token, apiBase, ownedWords, onAddWord, targetLang, baseLang }) {
+export default function WordGrid({ words, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, token, apiBase, ownedWords, onAddWord, targetLang, baseLang, level }) {
   const { t } = useLang()
 
   if (words.length === 0) {
@@ -31,6 +31,7 @@ export default function WordGrid({ words, onUpdate, onDelete, onEditOpen, onEdit
           onAddWord={onAddWord}
           targetLang={targetLang}
           baseLang={baseLang}
+          level={level}
           style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}
         />
       ))}

@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLang } from '../i18n/LangContext'
-import { speak } from '../utils/speech'
+import { speak, rateForLevel } from '../utils/speech'
 import PronounceCheck from './PronounceCheck'
 import ErrorBoundary from './ErrorBoundary'
 import { TTS_LOCALE } from '../utils/languages'
 
-export default function ReviewMode({ words, onReview, token, apiBase, targetLang = 'en', baseLang = 'zh' }) {
+export default function ReviewMode({ words, onReview, token, apiBase, targetLang = 'en', baseLang = 'zh', level }) {
   const { t } = useLang()
   const targetLocale = TTS_LOCALE[targetLang] || 'en-US'
   const baseLocale = TTS_LOCALE[baseLang] || 'zh-CN'
@@ -21,7 +21,7 @@ export default function ReviewMode({ words, onReview, token, apiBase, targetLang
   const [practiceLoading, setPracticeLoading] = useState(false)
   const [exampleCache, setExampleCache] = useState({})  // wordId -> [sentences]
   const [exampleIdx, setExampleIdx]     = useState({})  // wordId -> index
-  const [ttsRate, setTtsRate]           = useState(0.9)
+  const [ttsRate, setTtsRate]           = useState(rateForLevel(level))
   const [autoStep, setAutoStep]     = useState('')  // current step label
   const cancelRef = useRef(false)   // signals running sequence to abort
   const timerRef  = useRef(null)
@@ -143,8 +143,8 @@ export default function ReviewMode({ words, onReview, token, apiBase, targetLang
     speak(text, lang, {
       onEnd:   () => { setSpeaking(null); res() },
       onError: () => { setSpeaking(null); res() },
-    })
-  }), [])
+    }, ttsRate)
+  }), [ttsRate])
 
   useEffect(() => {
     if (!autoPlay || !current) return
@@ -407,20 +407,24 @@ export default function ReviewMode({ words, onReview, token, apiBase, targetLang
       {!practiceMode && (
         <div className="flex flex-col items-center gap-2 mt-4">
           <ErrorBoundary silent>
-            <PronounceCheck word={current.word} wordId={current.id} token={token} apiBase={apiBase} targetLang={targetLang} />
+            <PronounceCheck word={current.word} wordId={current.id} token={token} apiBase={apiBase} targetLang={targetLang} level={level} />
           </ErrorBoundary>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-white/25">{t.ttsSpeed}</span>
-            {[0.5, 1, 1.5].map(r => (
-              <button key={r} onClick={() => setTtsRate(r === 1 ? 0.9 : r)}
-                className={`text-[11px] px-2 py-0.5 rounded-full border transition-all ${
-                  (r === 1 ? ttsRate === 0.9 : ttsRate === r)
-                    ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
-                    : 'border-white/10 text-white/35 hover:text-white/60'
-                }`}>
-                {r}x
-              </button>
-            ))}
+            {[0.5, 1, 1.5].map(r => {
+              // "1x" = the recommended pace for the course level (slower for beginners)
+              const target = r === 1 ? rateForLevel(level) : r
+              return (
+                <button key={r} onClick={() => setTtsRate(target)}
+                  className={`text-[11px] px-2 py-0.5 rounded-full border transition-all ${
+                    ttsRate === target
+                      ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+                      : 'border-white/10 text-white/35 hover:text-white/60'
+                  }`}>
+                  {r}x
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

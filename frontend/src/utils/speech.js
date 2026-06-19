@@ -29,7 +29,13 @@ function findVoice(lang) {
  * @param {string} lang  e.g. 'en-US' | 'zh-CN'
  * @param {{ onStart?: () => void, onEnd?: () => void, onError?: () => void }} callbacks
  */
-export function speak(text, lang, callbacks = {}, rate = 0.88) {
+// Reading speed by course level — slower for beginners so learners can follow,
+// closer to natural pace for advanced. Used as the default rate for every TTS call.
+export function rateForLevel(level) {
+  return { beginner: 0.75, intermediate: 0.85, advanced: 1.0 }[level] ?? 0.8
+}
+
+export function speak(text, lang, callbacks = {}, rate = 0.8) {
   if (!window.speechSynthesis || !text?.trim()) return
 
   // Never speak markdown symbols (**, *, _, `, #)

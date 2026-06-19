@@ -462,7 +462,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
               <>
                 {mode === 'grid' && (
                   <>
-                    <DailyWord words={words} targetLang={activeCourse?.target_language || 'en'} />
+                    <DailyWord words={words} targetLang={activeCourse?.target_language || 'en'} level={activeCourse?.level} />
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <FilterBar
                         active={masteryFilter}
@@ -548,13 +548,15 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
                   onAddWord={handleAdd}
                   targetLang={activeCourse?.target_language || 'en'}
                   baseLang={activeCourse?.base_language || 'zh'}
+                  level={activeCourse?.level}
                 />
                   </>
                 )}
                 {mode === 'review' && (
                   <ReviewMode words={words} onReview={handleReview} token={token} apiBase={API}
                     targetLang={activeCourse?.target_language || 'en'}
-                    baseLang={activeCourse?.base_language || 'zh'} />
+                    baseLang={activeCourse?.base_language || 'zh'}
+                    level={activeCourse?.level} />
                 )}
                 {mode === 'quiz' && (
                   <QuizMode words={words} token={token} />
@@ -650,7 +652,7 @@ function MainApp({ token, onLogout, initialSettings, onInitialSettingsConsumed }
 
       {showStory && (
         <ErrorBoundary silent>
-          <StoryGeneratorModal words={words} apiBase={API} token={token} targetLang={activeCourse?.target_language || 'en'} onClose={() => setShowStory(false)} />
+          <StoryGeneratorModal words={words} apiBase={API} token={token} targetLang={activeCourse?.target_language || 'en'} level={activeCourse?.level} onClose={() => setShowStory(false)} />
         </ErrorBoundary>
       )}
     </div>

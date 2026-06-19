@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useLang } from '../i18n/LangContext'
-import { speak } from '../utils/speech'
+import { speak, rateForLevel } from '../utils/speech'
 import { TTS_LOCALE } from '../utils/languages'
 
 const SR = typeof window !== 'undefined'
@@ -29,7 +29,7 @@ function levenshtein(a, b) {
   return dp[m][n]
 }
 
-export default function PronounceCheck({ word, wordId, token, apiBase, compact, targetLang = 'en' }) {
+export default function PronounceCheck({ word, wordId, token, apiBase, compact, targetLang = 'en', level }) {
   const { t } = useLang()
   const targetLocale = TTS_LOCALE[targetLang] || 'en-US'
   const [listening, setListening] = useState(false)
@@ -69,7 +69,7 @@ export default function PronounceCheck({ word, wordId, token, apiBase, compact, 
         setResult({ type: 'close', heard })
       } else {
         setResult({ type: 'bad', heard })
-        speak(word, targetLocale)
+        speak(word, targetLocale, {}, rateForLevel(level))
       }
     }
     rec.onerror = () => { setResult({ type: 'bad', heard: '' }); setListening(false) }

@@ -1,10 +1,10 @@
 import { useLang } from '../i18n/LangContext'
-import { speak } from '../utils/speech'
+import { speak, rateForLevel } from '../utils/speech'
 import { useState } from 'react'
 import { TTS_LOCALE } from '../utils/languages'
 import { topicLabel } from '../i18n/courseI18n'
 
-export default function DailyWord({ words, targetLang = 'en' }) {
+export default function DailyWord({ words, targetLang = 'en', level }) {
   const { t, lang } = useLang()
   const [speaking, setSpeaking] = useState(false)
   const targetLocale = TTS_LOCALE[targetLang] || 'en-US'
@@ -20,7 +20,7 @@ export default function DailyWord({ words, targetLang = 'en' }) {
       onStart: () => setSpeaking(true),
       onEnd:   () => setSpeaking(false),
       onError: () => setSpeaking(false),
-    })
+    }, rateForLevel(level))
   }
 
   const posStyle = {

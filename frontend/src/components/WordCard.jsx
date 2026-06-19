@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useLang } from '../i18n/LangContext'
-import { speak } from '../utils/speech'
+import { speak, rateForLevel } from '../utils/speech'
 import PronounceCheck from './PronounceCheck'
 import ErrorBoundary from './ErrorBoundary'
 import WordFamily from './WordFamily'
@@ -20,9 +20,10 @@ const POS_STYLE = {
 }
 const POS_DEFAULT = 'bg-white/8 text-white/40 border-white/15'
 
-export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, token, apiBase, ownedWords, onAddWord, targetLang = 'en', baseLang = 'zh', style }) {
+export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEditClose, onOpenMap, token, apiBase, ownedWords, onAddWord, targetLang = 'en', baseLang = 'zh', level, style }) {
   const targetLocale = TTS_LOCALE[targetLang] || 'en-US'
   const baseLocale = TTS_LOCALE[baseLang] || 'zh-CN'
+  const ttsRate = rateForLevel(level)
   const { t, lang } = useLang()
   const [editing, setEditing]   = useState(false)
   const [saving, setSaving]     = useState(false)
@@ -76,8 +77,8 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
       onStart: () => setSpeaking(key),
       onEnd:   () => setSpeaking(null),
       onError: () => setSpeaking(null),
-    })
-  }, [])
+    }, ttsRate)
+  }, [ttsRate])
 
   const posKey = (w.part_of_speech || '').toLowerCase()
   const posStyle = POS_STYLE[posKey] || POS_DEFAULT
@@ -140,7 +141,7 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <ErrorBoundary silent>
-            <PronounceCheck word={w.word} wordId={w.id} token={token} apiBase={apiBase} targetLang={targetLang} compact />
+            <PronounceCheck word={w.word} wordId={w.id} token={token} apiBase={apiBase} targetLang={targetLang} level={level} compact />
           </ErrorBoundary>
           {token && apiBase && (
             <button onClick={() => setShowConvo(true)}
