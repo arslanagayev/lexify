@@ -13,6 +13,9 @@ const TOPIC_LABELS = {
     family: 'family', work: 'work', nature: 'nature', emotions: 'emotions',
     history: 'history', music: 'music', religion: 'religion', money: 'money',
     time: 'time', art: 'arts',
+    // DB-observed extras
+    animals: 'animals', pets: 'pets', lifestyle: 'lifestyle', fashion: 'fashion',
+    furniture: 'furniture', home: 'home', language: 'language', general: 'general',
   },
   tr: {
     business: 'ticaret', finance: 'finans', politics: 'siyaset', science: 'bilim',
@@ -23,6 +26,8 @@ const TOPIC_LABELS = {
     family: 'aile', work: 'çalışma', nature: 'doğa', emotions: 'duygular',
     history: 'tarih', music: 'müzik', religion: 'din', money: 'para',
     time: 'zaman', art: 'sanat',
+    animals: 'hayvanlar', pets: 'evcil hayvanlar', lifestyle: 'yaşam tarzı', fashion: 'moda',
+    furniture: 'mobilya', home: 'ev', language: 'dil', general: 'genel',
   },
   zh: {
     business: '商业', finance: '金融', politics: '政治', science: '科学',
@@ -33,6 +38,8 @@ const TOPIC_LABELS = {
     family: '家庭', work: '工作', nature: '自然', emotions: '情感',
     history: '历史', music: '音乐', religion: '宗教', money: '金钱',
     time: '时间', art: '艺术',
+    animals: '动物', pets: '宠物', lifestyle: '生活方式', fashion: '时尚',
+    furniture: '家具', home: '家居', language: '语言', general: '综合',
   },
   ru: {
     business: 'бизнес', finance: 'финансы', politics: 'политика', science: 'наука',
@@ -43,6 +50,8 @@ const TOPIC_LABELS = {
     family: 'семья', work: 'работа', nature: 'природа', emotions: 'эмоции',
     history: 'история', music: 'музыка', religion: 'религия', money: 'деньги',
     time: 'время', art: 'искусство',
+    animals: 'животные', pets: 'питомцы', lifestyle: 'образ жизни', fashion: 'мода',
+    furniture: 'мебель', home: 'дом', language: 'язык', general: 'общее',
   },
 }
 

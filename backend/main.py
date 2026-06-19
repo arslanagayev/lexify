@@ -31,6 +31,7 @@ _VALID_TOPICS = {
     "environment","health","law","economics","society","education","sports","arts",
     "food","daily_life","grammar","travel","family","work","nature","emotions",
     "history","music","religion","money","time",
+    "animals","pets","lifestyle","fashion","furniture","home","language","general",
 }
 
 def _normalize_tags(raw: str) -> str:

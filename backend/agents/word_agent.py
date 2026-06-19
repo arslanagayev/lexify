@@ -364,7 +364,8 @@ _JSON_SCHEMA = (
     '  "tags": "1–2 topic tags, comma-separated, chosen ONLY from this fixed list: '
     'business, finance, politics, science, technology, culture, psychology, environment, '
     'health, law, economics, society, education, sports, arts, '
-    'food, daily_life, grammar, travel, family, work, nature, emotions, history, music, religion, money, time. '
+    'food, daily_life, grammar, travel, family, work, nature, emotions, history, music, religion, money, time, '
+    'animals, pets, lifestyle, fashion, furniture, home, language, general. '
     "Use the exact key (e.g. daily_life not 'daily life'). Do NOT invent topics outside this list.\",\n"
     '  "etymology": "1–2 sentence etymology: origin language, root meaning, and when/how the word entered English",\n'
     '  "example_sentence": "EXAMPLE_SLOT",\n'
@@ -403,7 +404,8 @@ def _dynamic_schema(base_name: str, target_name: str, phonetic_desc: str, exampl
         '  "tags": "1-2 topic tags, comma-separated, chosen ONLY from this fixed list: '
         'business, finance, politics, science, technology, culture, psychology, environment, '
         'health, law, economics, society, education, sports, arts, '
-        'food, daily_life, grammar, travel, family, work, nature, emotions, history, music, religion, money, time. '
+        'food, daily_life, grammar, travel, family, work, nature, emotions, history, music, religion, money, time, '
+        'animals, pets, lifestyle, fashion, furniture, home, language, general. '
         "Use the exact key (e.g. daily_life not 'daily life'). Do NOT invent topics outside this list.\",\n"
         f'  "etymology": "1-2 sentence etymology of the {target_name} word, written in {base_name}",\n'
         f'  "example_sentence": "{example_desc}",\n'
