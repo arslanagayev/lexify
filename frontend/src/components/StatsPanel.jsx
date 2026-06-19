@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts'
 import { useLang } from '../i18n/LangContext'
+import { posLabel } from '../i18n/courseI18n'
 import ReviewCalendar from './ReviewCalendar'
 import ShareCard from './ShareCard'
 import ErrorBoundary from './ErrorBoundary'
 
 export default function StatsPanel({ words, apiBase, token, onImportComplete }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [stats, setStats]           = useState(null)
   const [overview, setOverview]     = useState(null)
   const [insights, setInsights]     = useState(null)
@@ -90,7 +91,7 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
   }, {})
   const posData = Object.entries(posCounts)
     .sort((a, b) => b[1] - a[1])
-    .map(([pos, count]) => ({ pos, count }))
+    .map(([pos, count]) => ({ pos, label: posLabel(lang, pos), count }))
 
   const POS_COLORS = {
     noun:'#38bdf8', verb:'#34d399', adjective:'#fbbf24',
@@ -249,7 +250,7 @@ export default function StatsPanel({ words, apiBase, token, onImportComplete }) 
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={posData} layout="vertical" barCategoryGap="20%">
                 <XAxis type="number" tick={{ fill:'rgba(255,255,255,0.2)', fontSize:10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <YAxis type="category" dataKey="pos" tick={{ fill:'rgba(255,255,255,0.4)', fontSize:11 }} axisLine={false} tickLine={false} width={80} />
+                <YAxis type="category" dataKey="label" tick={{ fill:'rgba(255,255,255,0.4)', fontSize:11 }} axisLine={false} tickLine={false} width={90} />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill:'rgba(255,255,255,0.04)' }} />
                 <Bar dataKey="count" name={t.totalWords} radius={[0,4,4,0]} maxBarSize={18}>
                   {posData.map(({ pos }) => (

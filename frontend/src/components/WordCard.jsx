@@ -7,7 +7,7 @@ import WordFamily from './WordFamily'
 import ConversationModal from './ConversationModal'
 import MnemonicTip from './MnemonicTip'
 import { TTS_LOCALE } from '../utils/languages'
-import { topicLabel } from '../i18n/courseI18n'
+import { topicLabel, posLabel } from '../i18n/courseI18n'
 
 const POS_STYLE = {
   noun:        'bg-sky-500/15 text-sky-300 border-sky-500/25',
@@ -98,7 +98,7 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
       <EditCard
         draft={draft} setDraft={setDraft}
         onSave={handleSave} onCancel={handleCancelEdit}
-        saving={saving} style={style} t={t}
+        saving={saving} style={style} t={t} lang={lang}
       />
     )
   }
@@ -135,7 +135,7 @@ export default function WordCard({ word: w, onUpdate, onDelete, onEditOpen, onEd
           )}
           {w.part_of_speech && (
             <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full border ${posStyle}`}>
-              {w.part_of_speech}
+              {posLabel(lang, w.part_of_speech)}
             </span>
           )}
         </div>
@@ -329,7 +329,7 @@ function ChatIcon({ className }) {
 }
 
 /* ── Inline edit card ─────────────────────────────────────── */
-function EditCard({ draft, setDraft, onSave, onCancel, saving, style, t }) {
+function EditCard({ draft, setDraft, onSave, onCancel, saving, style, t, lang }) {
   const set = key => e => setDraft(d => ({ ...d, [key]: e.target.value }))
   const inp = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-violet-500/50 transition-colors placeholder-white/20"
   const ta  = inp + " resize-none"
@@ -353,8 +353,8 @@ function EditCard({ draft, setDraft, onSave, onCancel, saving, style, t }) {
         <label className="text-[10px] text-white/25 mb-1 block">{t.fieldPos}</label>
         <select className={inp} value={draft.part_of_speech} onChange={set('part_of_speech')}>
           <option value="">—</option>
-          {['noun','verb','adjective','adverb','preposition','conjunction','interjection'].map(p => (
-            <option key={p} value={p}>{p}</option>
+          {['noun','verb','adjective','adverb','pronoun','preposition','conjunction','interjection','numeral','article'].map(p => (
+            <option key={p} value={p}>{posLabel(lang, p)}</option>
           ))}
         </select>
       </div>

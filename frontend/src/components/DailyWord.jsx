@@ -2,7 +2,7 @@ import { useLang } from '../i18n/LangContext'
 import { speak, rateForLevel } from '../utils/speech'
 import { useState } from 'react'
 import { TTS_LOCALE } from '../utils/languages'
-import { topicLabel } from '../i18n/courseI18n'
+import { topicLabel, posLabel } from '../i18n/courseI18n'
 
 export default function DailyWord({ words, targetLang = 'en', baseLang = 'zh', level }) {
   const { t, lang } = useLang()
@@ -54,7 +54,7 @@ export default function DailyWord({ words, targetLang = 'en', baseLang = 'zh', l
               <h2 className="text-3xl sm:text-4xl font-black grad-text leading-none">{word.word}</h2>
               {word.part_of_speech && (
                 <span className={`mt-1 text-xs px-2.5 py-1 rounded-full border font-medium ${posStyle}`}>
-                  {word.part_of_speech}
+                  {posLabel(lang, word.part_of_speech)}
                 </span>
               )}
               <SpeakBtn

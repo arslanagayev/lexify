@@ -4,7 +4,7 @@ import { useLang } from '../i18n/LangContext'
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function QuizMode({ words, token }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [quizMode, setQuizMode]   = useState('classic') // 'classic' | 'fillblank'
   const [question, setQuestion]   = useState(null)
   const [loading, setLoading]     = useState(false)
@@ -25,7 +25,12 @@ export default function QuizMode({ words, token }) {
       const headers = token ? { Authorization: `Bearer ${token}` } : {}
       const res = await fetch(`${API}/quiz/question`, { headers })
       if (!res.ok) throw new Error('fetch failed')
-      setQuestion(await res.json())
+      const data = await res.json()
+      // Regenerate question text client-side in current UI language
+      const questionText = data.question_type === 'reverse'
+        ? t.quizQReverse(data.word_meaning || data.options.find(o => o.correct)?.text || '')
+        : t.quizQMeaning(data.word)
+      setQuestion({ ...data, question: questionText })
     } catch {
       // fallback: build question from local words state
       setQuestion(buildLocalQuestion(wordsWithMeaning, t))

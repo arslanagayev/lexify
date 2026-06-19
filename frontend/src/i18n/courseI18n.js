@@ -1,6 +1,5 @@
-// Topic-tag and CEFR-level translations, keyed by the canonical English key
-// stored in the database. Display follows the interface language; the stored
-// value never changes (e.g. DB keeps "culture", UI shows "文化" / "Kültür").
+// Topic-tag, POS, and CEFR-level translations.
+// Canonical English keys are stored in the DB; display follows the interface language.
 
 const TOPIC_LABELS = {
   en: {
@@ -29,11 +28,42 @@ const TOPIC_LABELS = {
   },
 }
 
-// Translate a stored topic key for display. Falls back to the raw value so any
-// tag the AI returns that isn't in the fixed set still shows up.
 export function topicLabel(lang, key) {
   const k = (key || '').trim().toLowerCase()
   return TOPIC_LABELS[lang]?.[k] || TOPIC_LABELS.en[k] || key
+}
+
+// ── Part of Speech translations ───────────────────────────────────────────────
+const POS_LABELS = {
+  en: {
+    noun: 'noun', verb: 'verb', adjective: 'adjective', adverb: 'adverb',
+    pronoun: 'pronoun', preposition: 'preposition', conjunction: 'conjunction',
+    interjection: 'interjection', article: 'article', numeral: 'numeral',
+    particle: 'particle', determiner: 'determiner',
+  },
+  tr: {
+    noun: 'isim', verb: 'fiil', adjective: 'sıfat', adverb: 'zarf',
+    pronoun: 'zamir', preposition: 'edat', conjunction: 'bağlaç',
+    interjection: 'ünlem', article: 'tanımlık', numeral: 'sayı sıfatı',
+    particle: 'edat', determiner: 'belirteç',
+  },
+  zh: {
+    noun: '名词', verb: '动词', adjective: '形容词', adverb: '副词',
+    pronoun: '代词', preposition: '介词', conjunction: '连词',
+    interjection: '感叹词', article: '冠词', numeral: '数词',
+    particle: '助词', determiner: '限定词',
+  },
+  ru: {
+    noun: 'существительное', verb: 'глагол', adjective: 'прилагательное',
+    adverb: 'наречие', pronoun: 'местоимение', preposition: 'предлог',
+    conjunction: 'союз', interjection: 'междометие', article: 'артикль',
+    numeral: 'числительное', particle: 'частица', determiner: 'определитель',
+  },
+}
+
+export function posLabel(lang, key) {
+  const k = (key || '').trim().toLowerCase()
+  return POS_LABELS[lang]?.[k] || POS_LABELS.en[k] || key
 }
 
 // ── Levels (course "degree") ──────────────────────────────────────────────────

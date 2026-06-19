@@ -1291,6 +1291,7 @@ async def get_quiz_question(db: AsyncSession, user_id: Optional[int] = None,
         "question_type": question_type,
         "question": question,
         "options": options_raw,
+        "word_meaning": correct.chinese_meaning,
     }
 
 

@@ -4,9 +4,10 @@ import { speak, rateForLevel } from '../utils/speech'
 import PronounceCheck from './PronounceCheck'
 import ErrorBoundary from './ErrorBoundary'
 import { TTS_LOCALE } from '../utils/languages'
+import { posLabel } from '../i18n/courseI18n'
 
 export default function ReviewMode({ words, onReview, token, apiBase, targetLang = 'en', baseLang = 'zh', level }) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const targetLocale = TTS_LOCALE[targetLang] || 'en-US'
   const baseLocale = TTS_LOCALE[baseLang] || 'zh-CN'
   const [index, setIndex]           = useState(0)
@@ -304,7 +305,7 @@ export default function ReviewMode({ words, onReview, token, apiBase, targetLang
             <div className="flex items-center gap-2 mb-5">
               {current.part_of_speech && (
                 <span className="text-xs bg-violet-500/20 text-violet-300 border border-violet-500/30 px-3 py-1 rounded-full">
-                  {current.part_of_speech}
+                  {posLabel(lang, current.part_of_speech)}
                 </span>
               )}
               <span className="text-xs bg-white/5 text-white/20 border border-white/10 px-2 py-1 rounded-full">

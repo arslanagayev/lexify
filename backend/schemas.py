@@ -181,6 +181,7 @@ class QuizQuestion(BaseModel):
     question_type: str
     question: str
     options: list[QuizOption]
+    word_meaning: Optional[str] = None
 
 
 class ImportResponse(BaseModel):
