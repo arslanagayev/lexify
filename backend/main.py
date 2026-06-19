@@ -25,6 +25,26 @@ from backend.auth import (
 import asyncio
 from backend.agents.word_agent import enrich_word, AIServiceLimitedError, NotTargetLanguageError
 from backend.ai_alerts import send_ai_alert
+
+_VALID_TOPICS = {
+    "business","finance","politics","science","technology","culture","psychology",
+    "environment","health","law","economics","society","education","sports","arts",
+    "food","daily_life","grammar","travel","family","work","nature","emotions",
+    "history","music","religion","money","time",
+}
+
+def _normalize_tags(raw: str) -> str:
+    """Normalize AI-generated tags: lowercase, spaces→underscores, keep only known keys."""
+    if not raw:
+        return raw
+    tags = []
+    for t in raw.split(","):
+        k = t.strip().lower().replace(" ", "_").replace("-", "_")
+        if k in _VALID_TOPICS:
+            tags.append(k)
+        elif k:
+            tags.append(k)  # keep unknown keys as-is so data isn't lost
+    return ", ".join(tags)
 from backend.telegram_i18n import t as tg_t
 from backend.scheduler import setup_scheduler, scheduler
 from backend import telegram_manager
@@ -656,6 +676,7 @@ async def add_word(
             status_code=503,
             detail={"error_code": "ai_service_limited", "message": str(e)},
         )
+    data["tags"] = _normalize_tags(data.get("tags", ""))
     word = await crud.create_word(db, data, user_id=current_user.id, course_id=cid)
     await crud.log_activity(db)
     return word
@@ -996,6 +1017,7 @@ async def import_words_file(
             return
         if row.get("notes"):
             data["tags"] = ((data.get("tags") or "") + "," + row["notes"]).strip(",")
+        data["tags"] = _normalize_tags(data.get("tags", ""))
         await crud.create_word(db, data, user_id=current_user.id, course_id=cid)
         imported += 1
 
@@ -1131,6 +1153,7 @@ async def telegram_add_word(body: schemas.TelegramWordRequest, db: AsyncSession 
             status_code=503,
             detail={"error_code": "ai_service_limited", "message": str(e)},
         )
+    data["tags"] = _normalize_tags(data.get("tags", ""))
     word = await crud.create_word(db, data, user_id=user.id, course_id=cid)
     await crud.log_activity(db)
     return word

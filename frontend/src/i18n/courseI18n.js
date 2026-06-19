@@ -3,34 +3,60 @@
 
 const TOPIC_LABELS = {
   en: {
+    // original set
     business: 'business', finance: 'finance', politics: 'politics', science: 'science',
     technology: 'technology', culture: 'culture', psychology: 'psychology',
     environment: 'environment', health: 'health', law: 'law', economics: 'economics',
     society: 'society', education: 'education', sports: 'sports', arts: 'arts',
+    // expanded set
+    food: 'food', daily_life: 'daily life', grammar: 'grammar', travel: 'travel',
+    family: 'family', work: 'work', nature: 'nature', emotions: 'emotions',
+    history: 'history', music: 'music', religion: 'religion', money: 'money',
+    time: 'time', art: 'arts',
   },
   tr: {
-    business: 'iş', finance: 'finans', politics: 'siyaset', science: 'bilim',
+    business: 'ticaret', finance: 'finans', politics: 'siyaset', science: 'bilim',
     technology: 'teknoloji', culture: 'kültür', psychology: 'psikoloji',
     environment: 'çevre', health: 'sağlık', law: 'hukuk', economics: 'ekonomi',
     society: 'toplum', education: 'eğitim', sports: 'spor', arts: 'sanat',
+    food: 'yemek', daily_life: 'günlük yaşam', grammar: 'dilbilgisi', travel: 'seyahat',
+    family: 'aile', work: 'çalışma', nature: 'doğa', emotions: 'duygular',
+    history: 'tarih', music: 'müzik', religion: 'din', money: 'para',
+    time: 'zaman', art: 'sanat',
   },
   zh: {
     business: '商业', finance: '金融', politics: '政治', science: '科学',
     technology: '科技', culture: '文化', psychology: '心理学',
     environment: '环境', health: '健康', law: '法律', economics: '经济',
     society: '社会', education: '教育', sports: '体育', arts: '艺术',
+    food: '饮食', daily_life: '日常生活', grammar: '语法', travel: '旅行',
+    family: '家庭', work: '工作', nature: '自然', emotions: '情感',
+    history: '历史', music: '音乐', religion: '宗教', money: '金钱',
+    time: '时间', art: '艺术',
   },
   ru: {
     business: 'бизнес', finance: 'финансы', politics: 'политика', science: 'наука',
     technology: 'технологии', culture: 'культура', psychology: 'психология',
     environment: 'экология', health: 'здоровье', law: 'право', economics: 'экономика',
     society: 'общество', education: 'образование', sports: 'спорт', arts: 'искусство',
+    food: 'еда', daily_life: 'повседневная жизнь', grammar: 'грамматика', travel: 'путешествия',
+    family: 'семья', work: 'работа', nature: 'природа', emotions: 'эмоции',
+    history: 'история', music: 'музыка', religion: 'религия', money: 'деньги',
+    time: 'время', art: 'искусство',
   },
 }
 
+// Normalize key: lowercase, collapse spaces/hyphens to underscore
+function _normTopic(key) {
+  return (key || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
+}
+
 export function topicLabel(lang, key) {
-  const k = (key || '').trim().toLowerCase()
-  return TOPIC_LABELS[lang]?.[k] || TOPIC_LABELS.en[k] || key
+  const k = _normTopic(key)
+  const label = TOPIC_LABELS[lang]?.[k] || TOPIC_LABELS.en[k]
+  if (label) return label
+  // Fallback: prettify the raw key (daily_life → "Daily Life")
+  return k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || key
 }
 
 // ── Part of Speech translations ───────────────────────────────────────────────
