@@ -9,64 +9,82 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
   const { lang, setLang, t } = useLang()
   const { user } = useAuth()
 
+  const navItems = [
+    { key: 'grid',     label: t.grid,     icon: <GridIcon /> },
+    { key: 'review',   label: t.review,   icon: <CardIcon /> },
+    { key: 'quiz',     label: t.quiz,     icon: <QuizIcon /> },
+    { key: 'discover', label: t.discover, icon: <CompassIcon /> },
+    { key: 'stats',    label: t.stats,    icon: <ChartIcon /> },
+    ...(user?.is_admin ? [{ key: 'admin', label: t.admin, icon: <ShieldIcon /> }] : []),
+  ]
+
   return (
     <header className="sticky top-0 z-50 border-b border-white/5 backdrop-blur-2xl bg-black/30">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
-        {/* Logo */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <img src={logoSrc} alt="Lexify" className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shadow-lg shadow-violet-500/25" />
-          <div className="hidden md:block">
-            <p className="text-base font-bold grad-text leading-none">Lexify</p>
-            <p className="text-[11px] text-white/25 leading-none mt-0.5">{t.wordCount(count)}</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 lg:h-16 flex items-center justify-between gap-4 lg:gap-6">
+
+        {/* ── LEFT: logo + streak ── */}
+        <div className="flex items-center gap-3 shrink-0">
+          <img
+            src={logoSrc}
+            alt="Lexify"
+            className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-cover shadow-lg shadow-violet-500/25"
+          />
+          <div className="hidden lg:block leading-none">
+            <p className="text-sm font-bold grad-text leading-none">Lexify</p>
+            <p className="text-[11px] text-white/25 mt-0.5">{t.wordCount(count)}</p>
           </div>
-          {/* Streak badge (hidden on phones to save room) */}
+
+          {/* Divider */}
+          <div className="hidden sm:block h-5 w-px bg-white/10" />
+
           {streak > 0 && (
-            <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/15 border border-orange-500/25">
-              <span className="text-sm leading-none">🔥</span>
-              <span className="text-xs font-semibold text-orange-300">{t.streakDays(streak)}</span>
+            <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-orange-500/15 border border-orange-500/25">
+              <span className="text-xs leading-none">🔥</span>
+              <span className="text-[11px] font-semibold text-orange-300">{t.streakDays(streak)}</span>
             </div>
           )}
         </div>
 
-        {/* Mode nav — desktop only; mobile uses the bottom nav bar */}
-        <div className="hidden md:flex flex-1 min-w-0 overflow-x-auto no-scrollbar justify-center">
-          <div className="glass rounded-xl p-1 flex gap-1 shrink-0">
-            {[
-              { key: 'grid',     label: t.grid,     icon: <GridIcon /> },
-              { key: 'review',   label: t.review,   icon: <CardIcon /> },
-              { key: 'quiz',     label: t.quiz,     icon: <QuizIcon /> },
-              { key: 'discover', label: t.discover, icon: <CompassIcon /> },
-              { key: 'stats',    label: t.stats,    icon: <ChartIcon /> },
-              ...(user?.is_admin ? [{ key: 'admin', label: t.admin, icon: <ShieldIcon /> }] : []),
-            ].map(({ key, label, icon }) => (
+        {/* ── CENTER: navigation (desktop only) ── */}
+        <nav className="hidden md:flex flex-1 justify-center min-w-0">
+          <div className="glass rounded-xl p-1 flex gap-0.5">
+            {navItems.map(({ key, label, icon }) => (
               <button
                 key={key}
                 onClick={() => onModeChange(key)}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
+                className={`flex items-center gap-1.5 px-2.5 xl:px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                   mode === key
                     ? 'bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-md shadow-violet-500/30'
-                    : 'text-white/40 hover:text-white/70'
+                    : 'text-white/40 hover:text-white/70 hover:bg-white/5'
                 }`}
               >
                 {icon}
-                <span className="hidden sm:inline">{label}</span>
+                <span className="hidden xl:inline">{label}</span>
               </button>
             ))}
           </div>
-        </div>
+        </nav>
 
-        {/* Utilities */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Active course indicator */}
+        {/* ── RIGHT: utilities ── */}
+        <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
+
+          {/* Divider */}
+          <div className="hidden md:block h-5 w-px bg-white/10 mr-0.5" />
+
+          {/* Active course */}
           {activeCourse?.base_language && (
             <button
               onClick={onOpenCourses}
               title="Courses"
-              className="glass rounded-xl px-2 sm:px-2.5 py-1.5 text-sm leading-none hover:bg-white/8 transition-colors flex items-center gap-1.5"
+              className="glass rounded-xl px-2.5 py-1.5 hover:bg-white/8 transition-colors flex items-center gap-1.5 text-sm leading-none"
             >
-              <span>{langFlag(activeCourse.base_language)}<span className="text-white/30 mx-0.5">→</span>{langFlag(activeCourse.target_language)}</span>
+              <span className="flex items-center gap-0.5">
+                <span>{langFlag(activeCourse.base_language)}</span>
+                <span className="text-white/25 text-xs mx-0.5">→</span>
+                <span>{langFlag(activeCourse.target_language)}</span>
+              </span>
               {activeCourse.level && (
-                <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-200">
+                <span className="hidden xl:inline text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-200 whitespace-nowrap">
                   {levelLabel(lang, activeCourse.level)}
                 </span>
               )}
@@ -77,7 +95,7 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
           <button
             onClick={onToggleTheme}
             title="Toggle theme"
-            className="glass rounded-xl px-2.5 py-1.5 text-white/60 hover:text-white transition-colors text-base leading-none"
+            className="w-8 h-8 flex items-center justify-center glass rounded-xl text-white/60 hover:text-white transition-colors leading-none"
           >
             {theme === 'light' ? '🌙' : '☀️'}
           </button>
@@ -86,7 +104,7 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
           <button
             onClick={onOpenAchievements}
             title="Achievements"
-            className="glass rounded-xl px-2.5 py-1.5 text-white/60 hover:text-white transition-colors text-base leading-none"
+            className="w-8 h-8 flex items-center justify-center glass rounded-xl text-white/60 hover:text-white transition-colors leading-none"
           >
             🏆
           </button>
@@ -95,7 +113,14 @@ export default function Header({ mode, onModeChange, count, streak, onLogout, on
           <LangSelector lang={lang} setLang={setLang} />
 
           {/* User menu */}
-          {user && <UserMenu user={user} onLogout={onLogout} onOpenSettings={() => onModeChange('settings')} onOpenCourses={onOpenCourses} />}
+          {user && (
+            <UserMenu
+              user={user}
+              onLogout={onLogout}
+              onOpenSettings={() => onModeChange('settings')}
+              onOpenCourses={onOpenCourses}
+            />
+          )}
         </div>
       </div>
     </header>
@@ -110,12 +135,12 @@ function UserMenu({ user, onLogout, onOpenSettings, onOpenCourses }) {
     <div className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="glass rounded-xl px-2.5 py-1.5 flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+        className="glass rounded-xl px-2 py-1.5 flex items-center gap-1.5 text-white/60 hover:text-white transition-colors"
       >
         <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
           {(user.first_name?.[0] || user.username?.[0] || '?').toUpperCase()}
         </div>
-        <span className="hidden sm:inline text-xs font-medium max-w-[80px] truncate">
+        <span className="hidden xl:inline text-xs font-medium max-w-[80px] truncate">
           {user.first_name || user.username}
         </span>
         <ChevronIcon className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -165,10 +190,10 @@ function LangSelector({ lang, setLang }) {
     <div className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="glass rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-white/60 hover:text-white transition-colors"
+        className="glass rounded-xl px-2 py-1.5 flex items-center gap-1 text-white/60 hover:text-white transition-colors"
       >
         <span className="text-base leading-none">{current.flag}</span>
-        <span className="hidden sm:inline text-xs font-medium">{current.label}</span>
+        <span className="hidden xl:inline text-xs font-medium">{current.label}</span>
         <ChevronIcon className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
@@ -201,35 +226,35 @@ function LangSelector({ lang, setLang }) {
 
 function GridIcon() {
   return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
     </svg>
   )
 }
 function CardIcon() {
   return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
     </svg>
   )
 }
 function QuizIcon() {
   return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
     </svg>
   )
 }
 function ShieldIcon() {
   return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 5.25-4.5 8.25-9 9.75C7.5 20.25 3 17.25 3 12V5.25l9-3 9 3V12z" />
     </svg>
   )
 }
 function CompassIcon() {
   return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M14.12 9.88l-1.06 4.24-4.24 1.06 1.06-4.24 4.24-1.06z" />
     </svg>
@@ -237,7 +262,7 @@ function CompassIcon() {
 }
 function ChartIcon() {
   return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
     </svg>
   )
